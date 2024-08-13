@@ -356,13 +356,6 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         let dialog
         let session
 
-        const bodyParsed = JSON.parse(request.body) || {}
-        if (bodyParsed.plugindata?.data?.publishers){
-            // TODO: Implement getting the right session by some header parameter
-            const session = Object.values(this._janus_sessions)[0]
-            session.receivePublishers(bodyParsed)
-        }
-
         // Initial Request.
         if (!request.to_tag) {
             switch (method) {
@@ -442,7 +435,23 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
                 if (session) {
                     session.receiveRequest(request)
                 } else {
-                    logger.debug('received NOTIFY request for a non existent subscription')
+                    if (request.body) {
+                        try {
+                            const bodyParsed = JSON.parse(request.body) || {}
+                            if (bodyParsed.plugindata?.data?.publishers){
+                                // TODO: Implement getting the right session by some header parameter
+                                const session = Object.values(this._janus_sessions)[0]
+                                session.receivePublishers(bodyParsed)
+                            }
+
+                            if (bodyParsed.plugindata?.data?.unpublished){
+                                const session = Object.values(this._janus_sessions)[0]
+                                session.receiveUnpublished(bodyParsed.plugindata.data.unpublished)
+                            }
+                        } catch (e) {
+                            console.error(e)
+                        }
+                    }
                     request.reply(200)
                 }
             } else if (method !== JsSIP_C.ACK) {
@@ -483,7 +492,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         }
     }
 
-    terminateJanusSessions(options) {
+    terminateJanusSessions (options) {
         logger.debug('terminateSessions()')
 
         for (const idx in this._janus_sessions) {

@@ -31,38 +31,14 @@ export class VideoModule {
 
         this.context.logger.log(`Calling sip:${target}@${this.context.sipDomain}...`)
 
-        const call = this.context.joinVideoCall(
+        this.context.joinVideoCall(
             `sip:${target}@${this.context.sipDomain}`,
             displayName,
             this.sipOptions
         )
-
-        console.log('video call')
-        //this.callAddingInProgress = call.id
-
-        /*if (addToCurrentRoom && this.currentActiveRoomId !== undefined) {
-            this.processRoomChange({
-                callId: call.id,
-                roomId: this.currentActiveRoomId
-            })
-        }
-
-        call.connection.addEventListener('addstream', (event: Event) => {
-            this.triggerAddStream(event as MediaEvent, call as ICall)
-        })*/
     }
 
-    /*public invite1 (roomId: string) {
-        const inviteData = {
-            janus: 'invite',
-            plugin: 'janus.plugin.videoroom',
-            opaque_id: 'videoroomtest-uzkIUidc1969',
-            transaction: '1',
-            //session_id: 8477157010600503
-        }
-        this.context.invite(roomId, JSON.stringify(inviteData), {
-            contentType: 'application/json',
-        })
-    }*/
-
+    stop (options = {}) {
+        this.context.terminateJanusSessions(options)
+    }
 }

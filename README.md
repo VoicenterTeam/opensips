@@ -97,6 +97,7 @@ Also, there are next public fields on OpensipsJS instance:
 - `moveCall(callId: String, roomId: Number): Promise<void>` - Same as callChangeRoom. Move call to the specific room
 - `transferCall(callId: String, target: String): void` - transfer call to target
 - `mergeCall(roomId: Number): void` - merge calls in specific room. Works only for rooms with 2 calls inside
+- `mergeCallByIds(firstCallId: string, secondCallId: string): void` - merge 2 calls by their ids
 - `answerCall(callId: String): void` - answer a call
 - `mute(): void` - mute ourself
 - `unmute(): void` - unmute ourself

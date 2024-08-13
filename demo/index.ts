@@ -44,6 +44,7 @@ const outputLevelEl = document.getElementById('outputLevel') as HTMLInputElement
 const dtmfForm = document.getElementById('dtmfForm') as HTMLFormElement
 const dtmfInputEl = document.getElementById('dtmfInput') as HTMLInputElement
 const dtmfSendButtonEl = document.getElementById('dtmfSendButton') as HTMLButtonElement
+const terminateJanusSessionButtonEl = document.getElementById('terminateJanusSessionButton') as HTMLButtonElement
 
 const agentVoiceLevelContainerEl = document.getElementById('agentVoiceLevelContainer')
 
@@ -716,6 +717,65 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                     }
                 })
             })
+            .on('changeMainVideoStream', ({ name, stream }) => {
+                const videoContainer = document.getElementById('mainVideoElementContainer')
+
+                if (!stream) {
+                    const mainVideoElement = videoContainer.querySelector('video')
+                    if (mainVideoElement) {
+                        mainVideoElement.remove()
+                        return
+                    }
+                }
+
+                const nameElement = document.createElement('div')
+                nameElement.innerText = name
+
+                const videoElement = document.createElement('video')
+                videoElement.setAttribute('autoplay', '')
+                videoElement.setAttribute('controls', '')
+                videoElement.style.width = '40%'
+                videoElement.srcObject = stream
+
+                videoContainer.appendChild(videoElement)
+                videoContainer.appendChild(nameElement)
+            })
+            .on('memberJoin', (data) => {
+                const videosContainer = document.getElementById('participantsVideoElements')
+
+                const id = data.id
+
+                const members = videosContainer.querySelectorAll(`#member-${id}`)
+
+                if (!members.length) {
+                    const videoElementContainer = document.createElement('div')
+                    videoElementContainer.setAttribute('id', `member-${id}`)
+
+                    const memberNameElement = document.createElement('div')
+                    memberNameElement.innerText = data.name
+
+                    const videoElement = document.createElement('video')
+                    videoElement.setAttribute('autoplay', '')
+                    videoElement.setAttribute('controls', '')
+                    videoElement.style.width = '40%'
+                    videoElement.srcObject = data.stream
+
+                    videoElementContainer.appendChild(videoElement)
+                    videoElementContainer.appendChild(memberNameElement)
+                    videosContainer.appendChild(videoElementContainer)
+                } else {
+                    throw new Error(`Member with id="member-${id}" already exists`)
+                }
+            })
+            .on('memberHangup', (data) => {
+                const videosContainer = document.getElementById('participantsVideoElements')
+
+                const id = data.id
+
+                const member = videosContainer.querySelector(`#member-${id}`)
+
+                member?.remove()
+            })
             .begin()
 
         openSIPSJS.subscribe(
@@ -812,6 +872,22 @@ videoCallFormEl?.addEventListener(
         openSIPSJS.video?.initCall(target, name)
     }
 )
+
+terminateJanusSessionButtonEl?.addEventListener(
+    'click',
+    (event) => {
+        event.preventDefault()
+
+        openSIPSJS.video?.stop()
+
+        const videoContainer = document.getElementById('mainVideoElementContainer')
+
+        const mainVideoElement = videoContainer.querySelector('video')
+        const usernameElement = videoContainer.querySelector('div')
+
+        mainVideoElement?.remove()
+        usernameElement?.remove()
+    })
 
 sendMessageFormEl?.addEventListener(
     'submit',
