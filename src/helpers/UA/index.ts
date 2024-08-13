@@ -436,16 +436,20 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
                     session.receiveRequest(request)
                 } else {
                     if (request.body) {
-                        const bodyParsed = JSON.parse(request.body) || {}
-                        if (bodyParsed.plugindata?.data?.publishers){
-                            // TODO: Implement getting the right session by some header parameter
-                            const session = Object.values(this._janus_sessions)[0]
-                            session.receivePublishers(bodyParsed)
-                        }
+                        try {
+                            const bodyParsed = JSON.parse(request.body) || {}
+                            if (bodyParsed.plugindata?.data?.publishers){
+                                // TODO: Implement getting the right session by some header parameter
+                                const session = Object.values(this._janus_sessions)[0]
+                                session.receivePublishers(bodyParsed)
+                            }
 
-                        if (bodyParsed.plugindata?.data?.unpublished){
-                            const session = Object.values(this._janus_sessions)[0]
-                            session.receiveUnpublished(bodyParsed.plugindata.data.unpublished)
+                            if (bodyParsed.plugindata?.data?.unpublished){
+                                const session = Object.values(this._janus_sessions)[0]
+                                session.receiveUnpublished(bodyParsed.plugindata.data.unpublished)
+                            }
+                        } catch (e) {
+                            console.error(e)
                         }
                     }
                     request.reply(200)

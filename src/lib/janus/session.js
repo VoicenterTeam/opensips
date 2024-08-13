@@ -2886,9 +2886,13 @@ export default class RTCSession extends EventEmitter {
                                 this.subscribeSent = true
 
                                 if (response.body) {
-                                    const bodyParsed = JSON.parse(response.body) || {}
-                                    if (bodyParsed.plugindata?.data?.publishers){
-                                        this.receivePublishers(bodyParsed)
+                                    try {
+                                        const bodyParsed = JSON.parse(response.body) || {}
+                                        if (bodyParsed.plugindata?.data?.publishers){
+                                            this.receivePublishers(bodyParsed)
+                                        }
+                                    } catch (e) {
+                                        console.error(e)
                                     }
                                 }
 
