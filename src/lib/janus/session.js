@@ -839,6 +839,7 @@ export default class RTCSession extends EventEmitter {
                                 body
                             })
                             dialog.terminate()
+                            this.closeSession()
                         }
                     }
 
@@ -851,6 +852,7 @@ export default class RTCSession extends EventEmitter {
                                 body
                             })
                             dialog.terminate()
+                            this.closeSession()
                         }
                     })
 
@@ -868,6 +870,7 @@ export default class RTCSession extends EventEmitter {
                         body
                     })
 
+                    this.closeSession()
                     this._ended('local', null, cause)
                 }
         }
@@ -1671,6 +1674,13 @@ export default class RTCSession extends EventEmitter {
                 this.lastTrickleReceived = true
 
                 if (this.subscribeSent && !this.isConfigureSent) {
+                    this.addTracks(this.stream.getTracks())
+
+                    this._ua.emit('changeMainVideoStream', {
+                        name: this.display_name,
+                        stream: this.stream
+                    })
+
                     this._sendConfigureMessage({
                         audio: true,
                         video: true,
@@ -2457,6 +2467,7 @@ export default class RTCSession extends EventEmitter {
     }*/
 
     requestAudioAndVideoPermissions () {
+        console.log('MMM requestAudioAndVideoPermissions')
         return this.loadStream()
     }
 
@@ -2469,7 +2480,6 @@ export default class RTCSession extends EventEmitter {
 
         try {
             this.stream = await navigator.mediaDevices.getUserMedia(options)
-            logger.info('Got local user media.')
 
         } catch (e) {
             try {
@@ -2643,9 +2653,9 @@ export default class RTCSession extends EventEmitter {
             }
 
             const mediaStream = new MediaStream(tracksToApply)
-            member.stream = mediaStream
 
-            //this.plugin?.session.emit('member:join', this.memberInfo)
+            member.stream = mediaStream
+            this._ua.emit('memberJoin', member.memberInfo)
         }
 
         let iceCandidateTimeout
@@ -2732,6 +2742,35 @@ export default class RTCSession extends EventEmitter {
         })
     }
 
+    _detachMember (member) {
+        const body = {
+            janus: 'detach',
+            handle_id: member.handleId,
+            session_id: this.session_id
+        }
+
+        const registerExtraHeaders = [ 'PTYPE: Subscriber' ]
+
+        this.sendRequest(JsSIP_C.INFO, {
+            extraHeaders: registerExtraHeaders,
+            body: JSON.stringify(body),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    if (response.status_code === 200) {
+                        /*const parsedBody = JSON.parse(response.body)
+                        const memberHandleId = parsedBody.data.id
+                        member.handleId = memberHandleId
+
+                        this._sendJoinMemberRequest(member)*/
+                    }
+                },
+            }
+        })
+
+        console.log('closeSession emit hangup', member.memberInfo)
+        this._ua.emit('memberHangup', member.memberInfo)
+    }
+
     receivePublishers (msg) {
         const unprocessedMembers = { ...this.memberList }
         msg?.plugindata?.data?.publishers.forEach((publisher) => {
@@ -2756,6 +2795,33 @@ export default class RTCSession extends EventEmitter {
         }
         this.publishers = msg?.plugindata?.data?.publishers
         this.private_id = msg?.plugindata?.data?.private_id
+    }
+
+    receiveUnpublished (member) {
+        const hangupMember = this.memberList[member]
+
+        if (!hangupMember) {
+            return
+        }
+
+        hangupMember.hangup()
+        this._detachMember(hangupMember)
+
+        delete this.memberList[member]
+    }
+
+    closeSession () {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => {
+                track.stop()
+            })
+        }
+
+        const members = Object.values(this.memberList)
+        members.forEach((member) => {
+            member.hangup()
+            this._detachMember(member)
+        })
     }
 
     /**
@@ -2832,7 +2898,22 @@ export default class RTCSession extends EventEmitter {
                             if (response.status_code === 200) {
                                 this.subscribeSent = true
 
+                                console.log('SUBSCRIBE response', response)
+                                if (response.body) {
+                                    const bodyParsed = JSON.parse(response.body) || {}
+                                    if (bodyParsed.plugindata?.data?.publishers){
+                                        this.receivePublishers(bodyParsed)
+                                    }
+                                }
+
                                 if (this.lastTrickleReceived && !this.isConfigureSent) {
+                                    this.addTracks(this.stream.getTracks())
+
+                                    this._ua.emit('changeMainVideoStream', {
+                                        name: this.display_name,
+                                        stream: this.stream
+                                    })
+
                                     this._sendConfigureMessage({
                                         audio: true,
                                         video: true,
@@ -2845,7 +2926,7 @@ export default class RTCSession extends EventEmitter {
 
                 this.publisherSubscribeSent = true
 
-                this.addTracks(this.stream.getTracks())
+                //this.addTracks(this.stream.getTracks())
             })
         }
 

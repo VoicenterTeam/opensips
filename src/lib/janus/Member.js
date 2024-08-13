@@ -48,18 +48,15 @@ export default class Member {
     }
 
     hangup () {
-        //this.metrics.stop()
-        //this.plugin?.session.emit('metrics:stop', this.handleId)
-
         if (this.rtcpPeer) {
             this.rtcpPeer.close()
             this.rtcpPeer = null
         }
 
-        this.plugin.session.emit('member:hangup', {
-            info: this.info,
-            sender: this.handleId
-        })
-        this.plugin.send({ janus: 'detach' }, { handle_id: this.handleId }).catch(console.log)
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => {
+                track.stop()
+            })
+        }
     }
 }

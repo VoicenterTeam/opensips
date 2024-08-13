@@ -877,6 +877,28 @@ export class AudioModule {
         this.updateCall(firstCall)
     }
 
+    public mergeCallByIds (firstCallId: string, secondCallId: string) {
+        const firstCall = Object.values(this.extendedCalls).find((call) => call._id === firstCallId)
+        const secondCall = Object.values(this.extendedCalls).find((call) => call._id === secondCallId)
+
+        if (!firstCall || !secondCall) {
+            throw new Error('Call ID is not provided')
+        }
+
+        // TODO: Check all call.id for working in the same way as call._id
+        this.updateCallStatus({
+            callId: firstCallId,
+            isMerging: true
+        })
+        this.updateCallStatus({
+            callId: secondCallId,
+            isMerging: true
+        })
+
+        firstCall.refer(secondCall.remote_identity.uri.toString(), { replaces: secondCall })
+        this.updateCall(firstCall)
+    }
+
     // TODO: Use this method in demo
     public setDND (value: boolean) {
         this.isDNDEnabled = value
