@@ -2467,7 +2467,6 @@ export default class RTCSession extends EventEmitter {
     }*/
 
     requestAudioAndVideoPermissions () {
-        console.log('MMM requestAudioAndVideoPermissions')
         return this.loadStream()
     }
 
@@ -2753,21 +2752,9 @@ export default class RTCSession extends EventEmitter {
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders: registerExtraHeaders,
-            body: JSON.stringify(body),
-            eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    if (response.status_code === 200) {
-                        /*const parsedBody = JSON.parse(response.body)
-                        const memberHandleId = parsedBody.data.id
-                        member.handleId = memberHandleId
-
-                        this._sendJoinMemberRequest(member)*/
-                    }
-                },
-            }
+            body: JSON.stringify(body)
         })
 
-        console.log('closeSession emit hangup', member.memberInfo)
         this._ua.emit('memberHangup', member.memberInfo)
     }
 
@@ -2898,7 +2885,6 @@ export default class RTCSession extends EventEmitter {
                             if (response.status_code === 200) {
                                 this.subscribeSent = true
 
-                                console.log('SUBSCRIBE response', response)
                                 if (response.body) {
                                     const bodyParsed = JSON.parse(response.body) || {}
                                     if (bodyParsed.plugindata?.data?.publishers){
@@ -2925,8 +2911,6 @@ export default class RTCSession extends EventEmitter {
                 })
 
                 this.publisherSubscribeSent = true
-
-                //this.addTracks(this.stream.getTracks())
             })
         }
 
