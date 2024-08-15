@@ -738,11 +738,11 @@ export class AudioModule {
     }
 
     private async doConference (sessions: Array<ICall>) {
-        await forEach(sessions, async (session: ICall) => {
+        /*await forEach(sessions, async (session: ICall) => {
             if (session._localHold) {
                 await this.unholdCall(session._id)
             }
-        })
+        })*/
 
         // Take all received tracks from the sessions you want to merge
         const receivedTracks: Array<MediaStreamTrack> = []
