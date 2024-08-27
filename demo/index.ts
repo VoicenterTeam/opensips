@@ -1,5 +1,5 @@
 import OpenSIPSJS from '../src/index'
-import {ICall, IOpenSIPSConfiguration, IRoom, RoomChangeEmitType, UAConfiguration} from '../src/types/rtc'
+import { ICall, IOpenSIPSConfiguration, IRoom, RoomChangeEmitType, UAConfiguration } from '../src/types/rtc'
 import { runIndicator } from '../src/helpers/volume.helper'
 import { SendMessageOptions } from 'jssip/lib/Message'
 import { IMessage, MSRPSessionExtended } from '../src/types/msrp'

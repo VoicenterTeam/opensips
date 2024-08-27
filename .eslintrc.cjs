@@ -7,6 +7,7 @@ module.exports = {
     ],
     ignorePatterns: [
         'src/helpers/webrtcmetrics/',
+        'docs'
     ],
     rules: {
         'space-before-blocks': 'off'
