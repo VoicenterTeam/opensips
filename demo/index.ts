@@ -468,6 +468,29 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         return
     }
 
+    const pnparamsString = formData.get('pnparams') as string
+
+    const pnParams = pnparamsString.split(';').reduce(
+        (acc, item) => {
+            if (typeof item !== 'string') {
+                return acc
+            }
+
+            const [ key, value ] = item.split('=')
+
+            if (typeof key !== 'string' || typeof value !== 'string') {
+                return acc
+            }
+
+            acc[key] = value
+
+            return acc
+        },
+        {}
+    )
+
+    console.log('pnparam', pnParams)
+
     try {
         /*const socket_ = new JsSIP.WebSocketInterface(`wss://${domain}`)
         const jssip = new UA({
@@ -544,11 +567,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         openSIPSJS = new OpenSIPSJS({
             configuration,
             socketInterfaces: [ `wss://${domain}` ],
-            /*pnExtraHeaders: {
-                'pn-provider': 'acme',
-                'pn-param': 'acme-param',
-                'pn-prid': 'ZH11Y4ZDJlMNzODE1NgKi0K>'
-            },*/
+            pnExtraHeaders: pnParams,
             sipDomain: `${domain}`,
             sipOptions: {
                 session_timers: false,
