@@ -72,11 +72,44 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
     constructor (configuration: UAConfiguration) {
         super(configuration)
 
+        this.extendRegistrator()
+
         /*this.registrator().setExtraContactParams({
             'pn-provider': 'acme',
             'pn-param': 'acme-param',
             'pn-prid': 'ZTY4ZDJlMzODE1NmUgKi0K>'
         })*/
+    }
+
+    extendRegistrator() {
+        const registrator = this.registrator()
+        registrator.setExtraContactUriParams = function (extraContactParams) {
+            if (!(extraContactParams instanceof Object)) {
+                extraContactParams = {}
+            }
+
+            registrator._extraContactParams = ''
+
+            const symbolIndex = registrator._contact.indexOf('>')
+
+            if (symbolIndex !== -1) {
+                const newContact = registrator._contact.slice(0, symbolIndex) +
+                    registrator._contact.slice(symbolIndex + 1, registrator._contact.length)
+
+                registrator._contact = newContact
+            }
+
+            for (const param_key in extraContactParams) {
+                if (Object.prototype.hasOwnProperty.call(extraContactParams, param_key)) {
+                    const param_value = extraContactParams[param_key]
+
+                    registrator._extraContactParams += (`;${param_key}`)
+                    if (param_value) {
+                        registrator._extraContactParams += (`=${param_value}`)
+                    }
+                }
+            }
+        }
     }
 
     call (target: string, options?: CallOptionsExtended): RTCSession {
