@@ -1,10 +1,10 @@
-import {Options, Message, UA as UAType} from 'jssip'
+import { Options, Message, UA as UAType } from 'jssip'
 
-import UA, {UAConfiguration} from 'jssip/lib/UA'
+import UA, { UAConfiguration } from 'jssip/lib/UA'
 import * as JsSIP_C from 'jssip/lib/Constants'
-import RTCSessionConstructor, {Originator, RTCSession} from 'jssip/lib/RTCSession'
+import RTCSessionConstructor, { Originator, RTCSession } from 'jssip/lib/RTCSession'
 import Transactions from 'jssip/lib/Transactions'
-import {IncomingRequest} from 'jssip/lib/SIPMessage'
+import { IncomingRequest } from 'jssip/lib/SIPMessage'
 import JanusSession from '@/lib/janus/session'
 import config from 'jssip/lib/Config'
 import Parser from 'jssip/lib/Parser'
@@ -69,7 +69,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     //_janus_session: any = null
 
-    constructor(configuration: UAConfiguration) {
+    constructor (configuration: UAConfiguration) {
         super(configuration)
 
         /*this.registrator().setExtraContactParams({
@@ -79,13 +79,13 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         })*/
     }
 
-    call(target: string, options?: CallOptionsExtended): RTCSession {
+    call (target: string, options?: CallOptionsExtended): RTCSession {
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         return super.call(target, options)
     }
 
-    joinVideoCall(target, displayName, options) {
+    joinVideoCall (target, displayName, options) {
         logger.debug('call()')
 
         const session = new JanusSession(this)
@@ -95,34 +95,34 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         return session
     }
 
-    _loadConfig(configuration) {
+    _loadConfig (configuration) {
         // Check and load the given configuration.
         try {
-            config.load(this._configuration, configuration);
+            config.load(this._configuration, configuration)
         } catch (e) {
-            throw e;
+            throw e
         }
 
         // Post Configuration Process.
 
         // Allow passing 0 number as display_name.
         if (this._configuration.display_name === 0) {
-            this._configuration.display_name = '0';
+            this._configuration.display_name = '0'
         }
 
         // Instance-id for GRUU.
         if (!this._configuration.instance_id) {
-            this._configuration.instance_id = Utils.newUUID();
+            this._configuration.instance_id = Utils.newUUID()
         }
 
         // Jssip_id instance parameter. Static random tag of length 5.
-        this._configuration.jssip_id = Utils.createRandomToken(5);
+        this._configuration.jssip_id = Utils.createRandomToken(5)
 
         // String containing this._configuration.uri without scheme and user.
-        const hostport_params = this._configuration.uri.clone();
+        const hostport_params = this._configuration.uri.clone()
 
-        hostport_params.user = null;
-        this._configuration.hostport_params = hostport_params.toString().replace(/^sip:/i, '');
+        hostport_params.user = null
+        this._configuration.hostport_params = hostport_params.toString().replace(/^sip:/i, '')
 
         // Transport.
         try {
@@ -130,80 +130,80 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
                 // Recovery options.
                 max_interval: this._configuration.connection_recovery_max_interval,
                 min_interval: this._configuration.connection_recovery_min_interval
-            });
+            })
 
             // Transport event callbacks.
-            this._transport.onconnecting = onTransportConnecting.bind(this);
-            this._transport.onconnect = onTransportConnect.bind(this);
-            this._transport.ondisconnect = onTransportDisconnect.bind(this);
-            this._transport.ondata = onTransportData.bind(this);
+            this._transport.onconnecting = onTransportConnecting.bind(this)
+            this._transport.onconnect = onTransportConnect.bind(this)
+            this._transport.ondisconnect = onTransportDisconnect.bind(this)
+            this._transport.ondata = onTransportData.bind(this)
         } catch (e) {
-            logger.warn(e);
-            throw new Exceptions.ConfigurationError('sockets', this._configuration.sockets);
+            logger.warn(e)
+            throw new Exceptions.ConfigurationError('sockets', this._configuration.sockets)
         }
 
         // Remove sockets instance from configuration object.
-        delete this._configuration.sockets;
+        delete this._configuration.sockets
 
         // Check whether authorization_user is explicitly defined.
         // Take 'this._configuration.uri.user' value if not.
         if (!this._configuration.authorization_user) {
-            this._configuration.authorization_user = this._configuration.uri.user;
+            this._configuration.authorization_user = this._configuration.uri.user
         }
 
         // If no 'registrar_server' is set use the 'uri' value without user portion and
         // without URI params/headers.
         if (!this._configuration.registrar_server) {
-            const registrar_server = this._configuration.uri.clone();
+            const registrar_server = this._configuration.uri.clone()
 
-            registrar_server.user = null;
-            registrar_server.clearParams();
-            registrar_server.clearHeaders();
-            this._configuration.registrar_server = registrar_server;
+            registrar_server.user = null
+            registrar_server.clearParams()
+            registrar_server.clearHeaders()
+            this._configuration.registrar_server = registrar_server
         }
 
         // User no_answer_timeout.
-        this._configuration.no_answer_timeout *= 1000;
+        this._configuration.no_answer_timeout *= 1000
 
         // Via Host.
         if (this._configuration.contact_uri) {
-            this._configuration.via_host = this._configuration.contact_uri.host;
+            this._configuration.via_host = this._configuration.contact_uri.host
         }
 
         // Contact URI.
         else {
-            this._configuration.contact_uri = new URI('sip', Utils.createRandomToken(8), this._configuration.via_host, null, {transport: 'ws'});
+            this._configuration.contact_uri = new URI('sip', Utils.createRandomToken(8), this._configuration.via_host, null, { transport: 'ws' })
         }
 
         this._contact = {
             pub_gruu: null,
             temp_gruu: null,
             uri: this._configuration.contact_uri,
-            toString(options = {}) {
-                const anonymous = options.anonymous || null;
-                const outbound = options.outbound || null;
-                let contact = '<';
+            toString (options = {}) {
+                const anonymous = options.anonymous || null
+                const outbound = options.outbound || null
+                let contact = '<'
 
                 if (anonymous) {
-                    contact += this.temp_gruu || 'sip:anonymous@anonymous.invalid;transport=ws';
+                    contact += this.temp_gruu || 'sip:anonymous@anonymous.invalid;transport=ws'
                 } else {
-                    contact += this.pub_gruu || this.uri.toString();
+                    contact += this.pub_gruu || this.uri.toString()
                 }
 
                 if (outbound && (anonymous ? !this.temp_gruu : !this.pub_gruu)) {
-                    contact += ';ob';
+                    contact += ';ob'
                 }
 
-                contact += '>';
+                contact += '>'
 
-                return contact;
+                return contact
             }
-        };
+        }
 
         // Seal the configuration.
         const writable_parameters = [
             'authorization_user', 'password', 'realm', 'ha1', 'authorization_jwt', 'display_name', 'register'
-        ];
+        ]
 
         for (const parameter in this._configuration) {
             if (Object.prototype.hasOwnProperty.call(this._configuration, parameter)) {
@@ -211,37 +211,37 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
                     Object.defineProperty(this._configuration, parameter, {
                         writable: true,
                         configurable: false
-                    });
+                    })
                 } else {
                     Object.defineProperty(this._configuration, parameter, {
                         writable: false,
                         configurable: false
-                    });
+                    })
                 }
             }
         }
 
-        logger.debug('configuration parameters after validation:');
+        logger.debug('configuration parameters after validation:')
         for (const parameter in this._configuration) {
             // Only show the user user configurable parameters.
             if (Object.prototype.hasOwnProperty.call(config.settings, parameter)) {
                 switch (parameter) {
                     case 'uri':
                     case 'registrar_server':
-                        logger.debug(`- ${parameter}: ${this._configuration[parameter]}`);
-                        break;
+                        logger.debug(`- ${parameter}: ${this._configuration[parameter]}`)
+                        break
                     case 'password':
                     case 'ha1':
                     case 'authorization_jwt':
-                        logger.debug(`- ${parameter}: NOT SHOWN`);
-                        break;
+                        logger.debug(`- ${parameter}: NOT SHOWN`)
+                        break
                     default:
-                        logger.debug(`- ${parameter}: ${JSON.stringify(this._configuration[parameter])}`);
+                        logger.debug(`- ${parameter}: ${JSON.stringify(this._configuration[parameter])}`)
                 }
             }
         }
 
-        return;
+        return
     }
 
     /*call (target, options) {
@@ -257,7 +257,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
     /**
      * new MSRPSession
      */
-    newMSRPSession(session: MSRPSession, data: object) {
+    newMSRPSession (session: MSRPSession, data: object) {
         // Listening for message history update
         session.on('msgHistoryUpdate', (obj) => {
             console.log(obj)
@@ -267,7 +267,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         this.emit('newMSRPSession', data)
     }
 
-    newJanusSession(session, data) {
+    newJanusSession (session, data) {
         this._janus_sessions[session.id] = session
         this.emit('newJanusSession', data)
     }
@@ -275,11 +275,11 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
     /**
      * MSRPSession destroyed.
      */
-    destroyMSRPSession(session: MSRPSession) {
+    destroyMSRPSession (session: MSRPSession) {
         delete this._msrp_sessions[session.id]
     }
 
-    destroyJanusSession(session) {
+    destroyJanusSession (session) {
         delete this._janus_sessions[session.id]
     }
 
@@ -465,7 +465,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         }
     }
 
-    startMSRP(target: string, options: MSRPOptions): MSRPSession {
+    startMSRP (target: string, options: MSRPOptions): MSRPSession {
         logger.debug('startMSRP()', options)
 
         const session = new MSRPSession(this)
@@ -473,7 +473,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         return session
     }
 
-    startJanus(target: string, options: JanusOptions): MSRPSession {
+    startJanus (target: string, options: JanusOptions): MSRPSession {
         logger.debug('startJanus()', options)
 
         const session = new MSRPSession(this) // TODO: use new JanusSession(this)
@@ -482,7 +482,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
     }
 
 
-    terminateMSRPSessions(options: object) {
+    terminateMSRPSessions (options: object) {
         logger.debug('terminateSessions()')
 
         for (const idx in this._msrp_sessions) {
@@ -502,7 +502,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         }
     }
 
-    stop() {
+    stop () {
         logger.debug('stop()')
 
         // Remove dynamic settings.
@@ -631,7 +631,7 @@ function onTransportConnect (data) {
 // Transport disconnected event.
 function onTransportDisconnect (data) {
     // Run _onTransportError_ callback on every client transaction using _transport_.
-    const client_transactions = ['nict', 'ict', 'nist', 'ist']
+    const client_transactions = [ 'nict', 'ict', 'nist', 'ist' ]
 
     for (const type of client_transactions) {
         for (const id in this._transactions[type]) {
@@ -641,7 +641,7 @@ function onTransportDisconnect (data) {
         }
     }
 
-    this.emit('disconnected', data);
+    this.emit('disconnected', data)
 
     // Call registrator _onTransportClosed_.
     this._registrator.onTransportClosed()
@@ -698,7 +698,7 @@ function onTransportData (data) {
                 if (transaction) {
                     transaction.receiveResponse(message)
                 }
-                break;
+                break
             case JsSIP_C.ACK:
                 // Just in case ;-).
                 break
