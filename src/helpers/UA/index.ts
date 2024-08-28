@@ -8,7 +8,6 @@ import { IncomingRequest } from 'jssip/lib/SIPMessage'
 import JanusSession from '@/lib/janus/session'
 import config from 'jssip/lib/Config'
 import Parser from 'jssip/lib/Parser'
-import Grammar from 'jssip/lib/Grammar'
 import sanityCheck from 'jssip/lib/sanityCheck'
 
 import Utils from 'jssip/lib/Utils'
