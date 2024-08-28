@@ -155,7 +155,7 @@ class OpenSIPSJS extends UA {
         super(configuration)
 
         if (options.pnExtraHeaders && Object.keys(options.pnExtraHeaders).length) {
-            this.registrator().setExtraContactParams(options.pnExtraHeaders)
+            this.registrator().setExtraContactUriParams(options.pnExtraHeaders)
         }
 
         this.options = options
