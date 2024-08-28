@@ -865,9 +865,14 @@ export default class RTCSession extends EventEmitter {
                     // Restore the dialog into 'ua' so the ACK can reach 'this' session.
                     this._ua.newDialog(dialog)
                 } else {
+                    const byeBody = {
+                        request: 'leave'
+                    }
+
+                    const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: Leave' ]
                     this.sendRequest(JsSIP_C.BYE, {
                         extraHeaders,
-                        body
+                        body: JSON.stringify(byeBody)
                     })
 
                     this.closeSession()
