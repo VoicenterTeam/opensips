@@ -1311,7 +1311,7 @@ export class AudioModule {
 
     //@requireInitialization()
     public initCall (target: string, addToCurrentRoom: boolean) {
-        this.checkInitialized()
+        //this.checkInitialized()
 
         if (target.length === 0) {
             return console.error('Target must be a valid string')
