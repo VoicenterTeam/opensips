@@ -152,11 +152,11 @@ export default class RTCSession extends EventEmitter {
         this.memberList = {}
         this.myFeedList = []
         this.display_name = ''
-        this.stunServers = [{
+        this.stunServers = [ {
             urls: 'stun:turn.voicenter.co',
             credential: 'kxsjahnsdjns3eds23esd',
             username: 'turn2es21e'
-        }]
+        } ]
 
         const opaqueRandomString = uuidv4().replace(/-/g, '').slice(0, 12)
         this.opaque_id = `videoroomtest-${opaqueRandomString}`
@@ -866,7 +866,7 @@ export default class RTCSession extends EventEmitter {
                     this._ua.newDialog(dialog)
                 } else {
                     const byeBody = {
-                        request: 'leave'
+                        janus: 'leave'
                     }
 
                     const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: Leave' ]
