@@ -7,7 +7,6 @@ import Transactions from 'jssip/lib/Transactions'
 import { IncomingRequest } from 'jssip/lib/SIPMessage'
 import JanusSession from '@/lib/janus/session'
 import config from 'jssip/lib/Config'
-import Parser from 'jssip/lib/Parser'
 import sanityCheck from 'jssip/lib/sanityCheck'
 
 import Utils from 'jssip/lib/Utils'
@@ -16,14 +15,18 @@ import Exceptions from 'jssip/lib/Exceptions'
 import URI from 'jssip/lib/URI'
 import SIPMessage from 'jssip/lib/SIPMessage'
 
-import TestSession from '@/lib/janus/testSession'
+//import TestSession from '@/lib/janus/testSession'
 
 import { MSRPSession, MSRPOptions } from '@/lib/msrp/session'
 import { /*MSRPSession, */JanusOptions } from '@/lib/janus/session' // TODO: import JanusSession from here
-//import Parser from '@/lib/janus/Parser' // TODO: import JanusSession from here
+
+//import Parser from 'jssip/lib/Parser'
+import Parser from '@/lib/janus/Parser'
 
 import { CallOptionsExtended } from '@/types/rtc'
 import { UAExtendedInterface } from '@/lib/msrp/session'
+
+//import Registrator from 'jssip/lib/Registrator'
 import Registrator from '@/lib/janus/Registrator'
 
 const logger = console

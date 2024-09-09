@@ -45,20 +45,22 @@ export default class Registrator {
             this._contact = newContact
         }
 
-        // Sip.ice media feature tag (RFC 5768).
-        this._contact += ';+sip.ice'
-
-        // Custom headers for REGISTER and un-REGISTER.
-        this._extraHeaders = []
+        this._extra_contact = ''
 
         // Custom Contact header params for REGISTER and un-REGISTER.
         this._extraContactParams = ''
 
+        // Sip.ice media feature tag (RFC 5768).
+        this._extra_contact += ';+sip.ice'
+
+        // Custom headers for REGISTER and un-REGISTER.
+        this._extraHeaders = []
+
         // Contents of the sip.instance Contact header parameter.
         this._sipInstance = `"<urn:uuid:${this._ua.configuration.instance_id}>"`
 
-        this._contact += `;reg-id=${this._reg_id}`
-        this._contact += `;+sip.instance=${this._sipInstance}`
+        this._extra_contact += `;reg-id=${this._reg_id}`
+        this._extra_contact += `;+sip.instance=${this._sipInstance}`
     }
 
     get registered () {
@@ -123,8 +125,12 @@ export default class Registrator {
         const extraHeaders = this._extraHeaders.slice()
 
         extraHeaders.push(`Contact: \
-${this._contact}${this._extraContactParams}>;expires=${this._expires}`)
+${this._contact}${this._extraContactParams}>${this._extra_contact};expires=${this._expires}`)
         extraHeaders.push(`Expires: ${this._expires}`)
+
+        /*extraHeaders.push(`Contact: \
+${this._contact};expires=${this._expires}${this._extraContactParams}`)
+        extraHeaders.push(`Expires: ${this._expires}`)*/
 
         const request = new SIPMessage.OutgoingRequest(
             JsSIP_C.REGISTER, this._registrar, this._ua, {
@@ -295,8 +301,9 @@ ${this._contact}${this._extraContactParams}>;expires=${this._expires}`)
 
         if (options.all) {
             extraHeaders.push(`Contact: *${this._extraContactParams}`)
+            //TODO: maybe here also needed ${this._extra_contact}
         } else {
-            extraHeaders.push(`Contact: ${this._contact}${this._extraContactParams}>;expires=0`)
+            extraHeaders.push(`Contact: ${this._contact}${this._extraContactParams}>${this._extra_contact};expires=0`)
         }
 
         extraHeaders.push('Expires: 0')
