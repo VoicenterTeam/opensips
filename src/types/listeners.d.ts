@@ -17,6 +17,7 @@ export type ChangeVolumeEventType = {
 }
 
 export type readyListener = (value: boolean) => void
+export type connectionListener = (value: boolean) => void
 export type changeActiveCallsListener = (event: { [key: string]: ICall }) => void
 export type changeActiveMessagesListener = (event: { [key: string]: IMessage }) => void
 export type TestEventListener = (event: { test: string }) => void
@@ -48,6 +49,7 @@ export type memberHangupListener = (event: object) => void
 
 export interface OpenSIPSEventMap extends UAEventMap {
     ready: readyListener
+    connection: connectionListener
     changeActiveCalls: changeActiveCallsListener
     changeActiveMessages: changeActiveMessagesListener
     callConfirmed: TestEventListener

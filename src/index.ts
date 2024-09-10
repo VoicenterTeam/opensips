@@ -82,6 +82,7 @@ function requireInitialization () {
 
 class OpenSIPSJS extends UA {
     public initialized = false
+    public connected = false
 
     public readonly options: IOpenSIPSJSOptions
     public logger: CustomLoggerType = console
@@ -218,6 +219,7 @@ class OpenSIPSJS extends UA {
             this.connectedEventName,
             () => {
                 this.logger.log('Connected to', this.options.socketInterfaces[0])
+                this.setConnected(true)
                 this.isReconnecting = false
             }
         )
@@ -233,6 +235,7 @@ class OpenSIPSJS extends UA {
                 this.isReconnecting = true
                 this.stop()
                 this.setInitialized(false)
+                this.setConnected(false)
                 setTimeout(this.start.bind(this), 5000)
             }
         )
@@ -1242,6 +1245,11 @@ class OpenSIPSJS extends UA {
     private setInitialized (value: boolean) {
         this.initialized = value
         this.emit('ready', value)
+    }
+
+    private setConnected (value: boolean) {
+        this.connected = value
+        this.emit('connection', value)
     }
 
     /*public setMuteWhenJoin (value: boolean) {
