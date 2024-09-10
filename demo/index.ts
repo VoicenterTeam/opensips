@@ -1,4 +1,5 @@
 import OpenSIPSJS from '../src/index'
+//import OpenSIPSJS from '../dist/opensips-js.es'
 import { ICall, IOpenSIPSConfiguration, IRoom, RoomChangeEmitType, UAConfiguration } from '../src/types/rtc'
 import { runIndicator } from '../src/helpers/volume.helper'
 import { SendMessageOptions } from 'jssip/lib/Message'
@@ -9,8 +10,8 @@ import { getUIDFromSession } from './helpers'
 import { ChangeVolumeEventType } from '../src/types/listeners'
 import { MODULES } from '../src/enum/modules'
 import { CallTime } from '../src/types/timer'
-import UA from 'jssip/lib/UA'
-import JsSIP from 'jssip/lib/JsSIP'
+//import UA from 'jssip/lib/UA'
+//import JsSIP from 'jssip/lib/JsSIP'
 
 let openSIPSJS = null
 let msrpHistoryDb = null
@@ -582,7 +583,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
         /* openSIPSJS Listeners */
         openSIPSJS
-            .on('ready', () => {
+            .on('connection', () => {
                 if (!muteContainerEl) {
                     return
                 }
