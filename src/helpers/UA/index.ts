@@ -93,9 +93,14 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     joinVideoCall (target, displayName, options) {
         logger.debug('call()')
+        console.log('joinVideoCall')
 
         const session = new JanusSession(this)
 
+        session.configureMedia({
+            audio: true,
+            video: true
+        })
         session.connect(target, displayName, options)
 
         return session
@@ -504,6 +509,34 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         for (const idx in this._janus_sessions) {
             if (!this._janus_sessions[idx].isEnded()) {
                 this._janus_sessions[idx].terminate(options)
+            }
+        }
+    }
+
+    enableJanusAudio (state) {
+        logger.debug('enableJanusAudio()')
+
+        for (const idx in this._janus_sessions) {
+            if (!this._janus_sessions[idx].isEnded()) {
+                if (state) {
+                    this._janus_sessions[idx].startAudio()
+                } else {
+                    this._janus_sessions[idx].stopAudio()
+                }
+            }
+        }
+    }
+
+    enableJanusVideo (state) {
+        logger.debug('enableJanusVideo()')
+
+        for (const idx in this._janus_sessions) {
+            if (!this._janus_sessions[idx].isEnded()) {
+                if (state) {
+                    this._janus_sessions[idx].startVideo()
+                } else {
+                    this._janus_sessions[idx].stopVideo()
+                }
             }
         }
     }

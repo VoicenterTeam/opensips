@@ -41,4 +41,22 @@ export class VideoModule {
     stop (options = {}) {
         this.context.terminateJanusSessions(options)
     }
+
+    startAudio () {
+        console.log('KKK video startAudio')
+        this.context.enableJanusAudio(true)
+    }
+
+    stopAudio () {
+        console.log('KKK video stopAudio')
+        this.context.enableJanusAudio(false)
+    }
+
+    startVideo () {
+        this.context.enableJanusVideo(true)
+    }
+
+    stopVideo () {
+        this.context.enableJanusVideo(false)
+    }
 }

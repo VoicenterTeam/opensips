@@ -18,6 +18,7 @@ import * as SIPMessage from 'jssip/lib/SIPMessage'
 import Dialog from './Dialog'
 import Member from './Member'
 import RequestSender from 'jssip/lib/RequestSender'
+import DeviceManager from '../../helpers/janus/DeviceManager'
 //const RTCSession_DTMF = require('./RTCSession/DTMF')
 import RTCSession_DTMF from 'jssip/lib/RTCSession/DTMF'
 import RTCSession_Info from 'jssip/lib/RTCSession/Info'
@@ -163,6 +164,10 @@ export default class RTCSession extends EventEmitter {
 
         // Custom session empty object for high level use.
         this._data = {}
+
+        // Media state
+        this.isAudioOn = true
+        this.isVideoOn = true
     }
 
     /**
@@ -879,6 +884,113 @@ export default class RTCSession extends EventEmitter {
                     this._ended('local', null, cause)
                 }
         }
+    }
+
+    configureMedia (settings) {
+        this.isAudioOn = settings.audio
+        this.isVideoOn = settings.video
+    }
+
+    enableAudio (state) {
+        const body = {
+            janus: 'message',
+            body: {
+                audio: state
+            },
+            handle_id: this.handle_id,
+            session_id: this.session_id
+        }
+
+        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: AudioChange' ]
+
+        this.sendRequest(JsSIP_C.INFO, {
+            extraHeaders,
+            body: JSON.stringify(body),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    if (response.status_code === 200) {
+                        this._ua.emit('changeAudioState', state)
+
+                        this.sendStateMessage({
+                            audio: state
+                        })
+                    }
+                },
+            }
+        })
+    }
+
+    startAudio () {
+        DeviceManager.toggleAudioMute(this.stream, true)
+        this.enableAudio(true)
+        this.isAudioOn = true
+    }
+
+    stopAudio () {
+        DeviceManager.toggleAudioMute(this.stream, false)
+        this.enableAudio(false)
+        this.isAudioOn = false
+    }
+
+    enableVideo (state) {
+        const body = {
+            janus: 'message',
+            body: {
+                video: state
+            },
+            handle_id: this.handle_id,
+            session_id: this.session_id
+        }
+
+        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: VideoChange' ]
+
+        this.sendRequest(JsSIP_C.INFO, {
+            extraHeaders,
+            body: JSON.stringify(body),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    if (response.status_code === 200) {
+                        this._ua.emit('changeVideoState', state)
+
+                        this.sendStateMessage({
+                            video: state
+                        })
+                    }
+                },
+            }
+        })
+    }
+
+    startVideo () {
+        DeviceManager.toggleVideoMute(this.stream)
+        this.enableVideo(true)
+        this.isVideoOn = true
+    }
+
+    stopVideo () {
+        DeviceManager.toggleVideoMute(this.stream)
+        this.enableVideo(false)
+        this.isVideoOn = false
+    }
+
+
+    sendStateMessage (data) {
+        const body = {
+            janus: 'message',
+            body: {
+                request: 'state',
+                data,
+            },
+            handle_id: this.handle_id,
+            session_id: this.session_id
+        }
+
+        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: State' ]
+
+        this.sendRequest(JsSIP_C.INFO, {
+            extraHeaders,
+            body: JSON.stringify(body)
+        })
     }
 
     /*sendDTMF (tones, options = {}) {
@@ -2478,8 +2590,8 @@ export default class RTCSession extends EventEmitter {
     async loadStream () {
         // const options = { ...this.mediaConstraints }
         const options = {
-            audio: true,
-            video: true
+            audio: this.isAudioOn,
+            video: this.isVideoOn
         }
 
         try {
@@ -2914,6 +3026,8 @@ export default class RTCSession extends EventEmitter {
                                         video: true,
                                     }).then(() => {})
                                 }
+
+                                this._ua.emit('conferenceStart')
                             }
                         },
                     }
