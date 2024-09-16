@@ -43,12 +43,10 @@ export class VideoModule {
     }
 
     startAudio () {
-        console.log('KKK video startAudio')
         this.context.enableJanusAudio(true)
     }
 
     stopAudio () {
-        console.log('KKK video stopAudio')
         this.context.enableJanusAudio(false)
     }
 

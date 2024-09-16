@@ -861,12 +861,6 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
     }
 })
 
-/*audioCheckboxEl?.addEventListener('change', (event) => {
-    useAudio = event.target.checked
-    //event.preventDefault()
-    //selectTab(event, 'audioTabContainer')
-})*/
-
 audioChangeButtonEl?.addEventListener('click', (event) => {
     event.preventDefault()
 

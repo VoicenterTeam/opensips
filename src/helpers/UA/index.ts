@@ -93,7 +93,6 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     joinVideoCall (target, displayName, options) {
         logger.debug('call()')
-        console.log('joinVideoCall')
 
         const session = new JanusSession(this)
 
