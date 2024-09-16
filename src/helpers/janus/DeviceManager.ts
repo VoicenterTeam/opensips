@@ -123,14 +123,14 @@ class DeviceManager {
         }
     }
 
-    static toggleAudioMute (stream, value) {
+    static toggleAudioMute (stream) {
         const audioTracks = stream.getAudioTracks()
         if (audioTracks.length === 0) {
             return
         }
 
         audioTracks.forEach(track => {
-            track.enabled = value//!track.enabled
+            track.enabled = !track.enabled
         })
 
         return audioTracks[0].enabled
@@ -149,8 +149,10 @@ class DeviceManager {
         return videoTracks[0].enabled
     }
 
-    static async getStream (streamOptions = { video: true,
-        audio: true }) {
+    static async getStream (streamOptions = {
+        video: true,
+        audio: true
+    }) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia(streamOptions)
 

@@ -28,6 +28,8 @@ import RTCSession_ReferNotifier from 'jssip/lib/RTCSession/ReferNotifier'
 import RTCSession_ReferSubscriber from 'jssip/lib/RTCSession/ReferSubscriber'
 import URI from 'jssip/lib/URI'
 
+import P_TYPES from '../../enum/p.types'
+
 const logger = new Logger('JanusSession')
 
 const RECORDING_PATH = '/opt/recordings/'
@@ -274,6 +276,10 @@ export default class RTCSession extends EventEmitter {
             local: this._localHold,
             remote: this._remoteHold
         }
+    }
+
+    getPTypeHeader (type) {
+        return `PTYPE: ${type}`
     }
 
     connect (target, displayName, options = {}, initCallback) {
@@ -874,7 +880,11 @@ export default class RTCSession extends EventEmitter {
                         janus: 'leave'
                     }
 
-                    const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: Leave' ]
+                    const extraHeaders = [
+                        'Content-Type: application/json',
+                        this.getPTypeHeader(P_TYPES.LEAVE)
+                    ]
+
                     this.sendRequest(JsSIP_C.BYE, {
                         extraHeaders,
                         body: JSON.stringify(byeBody)
@@ -901,7 +911,10 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: AudioChange' ]
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.AUDIO_CHANGE)
+        ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -921,13 +934,13 @@ export default class RTCSession extends EventEmitter {
     }
 
     startAudio () {
-        DeviceManager.toggleAudioMute(this.stream, true)
+        DeviceManager.toggleAudioMute(this.stream)
         this.enableAudio(true)
         this.isAudioOn = true
     }
 
     stopAudio () {
-        DeviceManager.toggleAudioMute(this.stream, false)
+        DeviceManager.toggleAudioMute(this.stream)
         this.enableAudio(false)
         this.isAudioOn = false
     }
@@ -942,7 +955,10 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: VideoChange' ]
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.VIDEO_CHANGE)
+        ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -985,7 +1001,10 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: State' ]
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.STATE)
+        ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -2664,7 +2683,10 @@ export default class RTCSession extends EventEmitter {
             trickles: [ ...candidatesArray ]
         }
 
-        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: Ice' ]
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.ICE)
+        ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -2696,7 +2718,10 @@ export default class RTCSession extends EventEmitter {
             jsep
         }
 
-        const extraHeaders = [ 'Content-Type: application/json', 'PTYPE: Configure' ]
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.CONFIGURE)
+        ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -2723,7 +2748,7 @@ export default class RTCSession extends EventEmitter {
             trickles: [ ...candidatesArray ]
         }
 
-        const extraHeaders = [ 'PTYPE: Trickle' ]
+        const extraHeaders = [ this.getPTypeHeader(P_TYPES.TRICKLE) ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders,
@@ -2812,7 +2837,7 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const registerExtraHeaders = [ 'PTYPE: Subscriber' ]
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.SUBSCRIBER) ]
 
         this.sendRequest(JsSIP_C.SUBSCRIBE, {
             extraHeaders: registerExtraHeaders,
@@ -2839,7 +2864,7 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const registerExtraHeaders = [ 'PTYPE: Subscriber' ]
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.SUBSCRIBER) ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders: registerExtraHeaders,
@@ -2865,7 +2890,7 @@ export default class RTCSession extends EventEmitter {
             session_id: this.session_id
         }
 
-        const registerExtraHeaders = [ 'PTYPE: Subscriber' ]
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.SUBSCRIBER) ]
 
         this.sendRequest(JsSIP_C.INFO, {
             extraHeaders: registerExtraHeaders,
@@ -2992,7 +3017,7 @@ export default class RTCSession extends EventEmitter {
                     handle_id: this.handle_id
                 }
 
-                const registerExtraHeaders = [ 'PTYPE: Publisher' ]
+                const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ]
 
                 this.sendRequest(JsSIP_C.SUBSCRIBE, {
                     extraHeaders: registerExtraHeaders,
