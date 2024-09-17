@@ -55,6 +55,31 @@ const roomSelectEl = document.getElementById('roomSelect') as HTMLSelectElement
 const roomsContainerEl = document.getElementById('roomsContainer')
 const messagesContainerEl = document.getElementById('messagesContainer')
 
+const audioChangeButtonEl = document.getElementById('audioChangeButton')
+const videoChangeButtonEl = document.getElementById('videoChangeButton')
+
+/* UI Interaction */
+function selectTab (evt, tab) {
+    // Declare all variables
+    let i
+
+    // Get all elements with class="tabcontent" and hide them
+    const tabcontent = document.getElementsByClassName('tabcontent')
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = 'none'
+    }
+
+    // Get all elements with class="tablinks" and remove the class "active"
+    const tablinks = document.getElementsByClassName('tablinks')
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(' active', '')
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tab).style.display = 'block'
+    evt.currentTarget.className += ' active'
+}
+
 /* Helpers */
 
 const muteButtonEventListener = (event: MouseEvent) => {
@@ -460,6 +485,9 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
     const domain = formData.get('domain') || urlParams.get('domain')
 
+    const useAudio = formData.get('useAudioCheckbox') || urlParams.get('useAudio')
+    const useVideo = formData.get('useVideoCheckbox') || urlParams.get('useVideo')
+
     if (username && domain && (!password && !token)) {
         alert('Fill up password or token')
         return
@@ -490,68 +518,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         {}
     )
 
-    console.log('pnparam', pnParams)
-
     try {
-        /*const socket_ = new JsSIP.WebSocketInterface(`wss://${domain}`)
-        const jssip = new UA({
-            session_timers: false,
-            uri: `sip:${username}@${domain}`,
-            password: password,
-            sockets: [ socket_ ],
-        })
-
-        jssip.start()
-        window.ua = jssip
-
-        const sipOptions = {
-            session_timers: false,
-            extraHeaders: [ 'X-Bar: bar' ],
-            pcConfig: {},
-            mediaConstraints: {
-                audio: {
-                    deviceId: {
-                        exact: 'default'
-                    }
-                },
-                video: false
-            }
-        }
-
-        function onNewSession (event) {
-            console.log('on newRTCSession', event)
-            let session = event.session
-
-            window.hangup = function () {
-                session.terminate()
-                session.removeAllListeners()
-
-                session = null
-                event.session = null
-
-                jssip.removeListener('newRTCSession', onNewSession)
-            }
-        }
-
-        jssip.on('newRTCSession', onNewSession)
-
-        setTimeout(() => {
-            let call = jssip.call(`sip:${'665'}@${domain}`, sipOptions)
-
-            call.on('failed', (call) => {
-                console.log('failed')
-            })
-
-            call.on('ended', (call) => {
-                console.log('ended')
-            })
-
-            call.on('confirmed', (call) => {
-                console.log('confirmed')
-            })
-            //window.call = call
-        }, 3000)*/
-
         const configuration: IOpenSIPSConfiguration = {
             session_timers: false,
             uri: `sip:${username}@${domain}`
@@ -563,6 +530,16 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
         if (token) {
             configuration.authorization_jwt = token
+        }
+
+        const modules = []
+
+        if (useAudio === 'on') {
+            modules.push(MODULES.AUDIO)
+        }
+
+        if (useVideo === 'on') {
+            modules.push(MODULES.VIDEO)
         }
 
         openSIPSJS = new OpenSIPSJS({
@@ -578,7 +555,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                     iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ]
                 },*/
             },
-            modules: [ MODULES.AUDIO, MODULES.VIDEO ]
+            modules
         })
 
         /* openSIPSJS Listeners */
@@ -737,6 +714,9 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                     }
                 })
             })
+            .on('conferenceStart', () => {
+                videoCallFormEl.style.display = 'none'
+            })
             .on('changeMainVideoStream', ({ name, stream }) => {
                 const videoContainer = document.getElementById('mainVideoElementContainer')
 
@@ -754,7 +734,8 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 const videoElement = document.createElement('video')
                 videoElement.setAttribute('autoplay', '')
                 videoElement.setAttribute('controls', '')
-                videoElement.style.width = '40%'
+                //videoElement.style.width = '50%'
+                videoElement.style.height = '95%'
                 videoElement.srcObject = stream
 
                 videoContainer.appendChild(videoElement)
@@ -796,6 +777,12 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
                 member?.remove()
             })
+            .on('changeAudioState', (state) => {
+                audioChangeButtonEl.innerText = state ? 'Audio On' : 'Audio Off'
+            })
+            .on('changeVideoState', (state) => {
+                videoChangeButtonEl.innerText = state ? 'Video On' : 'Video Off'
+            })
             .begin()
 
         openSIPSJS.subscribe(
@@ -830,11 +817,68 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
             openSIPSJS.video.startJanus('abcd')
         }, 5000)*/
 
+        const navigationTabs = document.getElementsByClassName('navigation-tab')[0]
+
+        modules.forEach((module, index) => {
+            const tabButton = document.createElement('button')
+            tabButton.classList.add('tablinks')
+
+            if (module === MODULES.AUDIO) {
+                tabButton.setAttribute('id', 'audioTabButton')
+                tabButton.innerText = 'Audio'
+
+                tabButton.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    selectTab(event, 'audioTabContainer')
+                })
+
+                navigationTabs.appendChild(tabButton)
+
+                if (index === 0) {
+                    tabButton.click()
+                }
+            } else if (module === MODULES.VIDEO) {
+                tabButton.setAttribute('id', 'videoTabButton')
+                tabButton.innerText = 'Video'
+
+                tabButton.addEventListener('click', (event) => {
+                    event.preventDefault()
+                    selectTab(event, 'videoTabContainer')
+                })
+
+                navigationTabs.appendChild(tabButton)
+
+                if (index === 0) {
+                    tabButton.click()
+                }
+            }
+        })
 
         loginPageEl.style.display = 'none'
         webRTCPageEl.style.display = 'block'
     } catch (e) {
         console.error(e)
+    }
+})
+
+audioChangeButtonEl?.addEventListener('click', (event) => {
+    event.preventDefault()
+
+    if (audioChangeButtonEl.innerText === 'Audio On') {
+        openSIPSJS.video.stopAudio()
+    } else {
+        openSIPSJS.video.startAudio()
+    }
+
+})
+
+videoChangeButtonEl?.addEventListener('click', (event) => {
+    event.preventDefault()
+
+    if (videoChangeButtonEl.innerText === 'Video On') {
+        openSIPSJS.video.stopVideo()
+    } else {
+        openSIPSJS.video.startVideo()
     }
 })
 

@@ -43,13 +43,17 @@ export type changeCallStatusListener = (event: { [key: string]: ICallStatus }) =
 export type changeCallTimeListener = (event: { [key: string]: ITimeData }) => void
 export type changeCallMetricsListener = (event: { [key: string]: any }) => void
 export type changeCallVolumeListener = (event: ChangeVolumeEventType) => void
+export type conferenceStartListener = () => void
 export type changeMainVideoStreamListener = (event: { name: string, event: MediaStream }) => void
 export type memberJoinListener = (event: object) => void
 export type memberHangupListener = (event: object) => void
+export type changeAudioStateListener = (state: boolean) => void
+export type changeVideoStateListener = (state: boolean) => void
 
 export interface OpenSIPSEventMap extends UAEventMap {
     ready: readyListener
     connection: connectionListener
+    // JSSIP
     changeActiveCalls: changeActiveCallsListener
     changeActiveMessages: changeActiveMessagesListener
     callConfirmed: TestEventListener
@@ -73,9 +77,13 @@ export interface OpenSIPSEventMap extends UAEventMap {
     changeCallVolume: changeCallVolumeListener
     newMSRPMessage: MSRPMessageListener
     newMSRPSession: MSRPSessionListener
+    // JANUS
+    conferenceStart: conferenceStartListener
     changeMainVideoStream: changeMainVideoStreamListener
     memberJoin: memberJoinListener
     memberHangup: memberHangupListener
+    changeAudioState: changeAudioStateListener
+    changeVideoState: changeVideoStateListener
 }
 
 export type ListenersKeyType = keyof OpenSIPSEventMap

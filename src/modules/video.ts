@@ -41,4 +41,20 @@ export class VideoModule {
     stop (options = {}) {
         this.context.terminateJanusSessions(options)
     }
+
+    startAudio () {
+        this.context.enableJanusAudio(true)
+    }
+
+    stopAudio () {
+        this.context.enableJanusAudio(false)
+    }
+
+    startVideo () {
+        this.context.enableJanusVideo(true)
+    }
+
+    stopVideo () {
+        this.context.enableJanusVideo(false)
+    }
 }
