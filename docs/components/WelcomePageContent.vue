@@ -50,11 +50,13 @@ const navigationLinks = [
         icon: 'i-heroicons:book-open',
         link: '/docs'
     },
-    {
-        label: 'API',
-        icon: 'i-heroicons:server-stack',
-        link: '/api'
-    },
+
+    // Uncomment when TS is fixed so we have the API docs
+    // {
+    //     label: 'API',
+    //     icon: 'i-heroicons:server-stack',
+    //     link: '/api'
+    // },
     {
         label: 'Example',
         icon: 'i-heroicons:window',

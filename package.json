@@ -13,6 +13,7 @@
     "build": "cross-env TARGET=lib vite build",
     "build-demo": "cross-env TARGET=demo vite build",
     "docs-build": "cd docs && yarn && yarn run build",
+    "docs-genereate": "yarn build && yarn build-demo && cd docs && yarn && yarn run generate",
     "test": "echo \"Error: no test specified\" && exit 1",
     "ts-check": "tsc --noEmit",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts --fix --ignore-path .gitignore"
