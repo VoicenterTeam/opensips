@@ -13,7 +13,8 @@
     "build": "cross-env TARGET=lib vite build",
     "build-demo": "cross-env TARGET=demo vite build",
     "docs-build": "cd docs && yarn && yarn run build",
-    "docs-genereate": "yarn build && yarn build-demo && cd docs && yarn && yarn run generate",
+    "docs-publish": "yarn docs-genereate && node scripts/upload-doc.js",
+    "docs-genereate": "yarn build && yarn build-demo && cd docs && yarn && yarn run generate && cd ..",
     "test": "echo \"Error: no test specified\" && exit 1",
     "ts-check": "tsc --noEmit",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts --fix --ignore-path .gitignore"
@@ -40,6 +41,7 @@
     "@typescript-eslint/parser": "^5.53.0",
     "@vitejs/plugin-vue": "^4.2.3",
     "@voicenter-team/eslint-config-ts": "^1.0.21",
+    "@voicenter-team/aws-uploader": "^1.0.6",
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
     "eslint": "^8.35.0",
