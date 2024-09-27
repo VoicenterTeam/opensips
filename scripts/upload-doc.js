@@ -8,6 +8,7 @@ const S3_BUCKET = process.env.S3_BUCKET
 const S3_REGION = process.env.S3_REGION
 const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID
 const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY
+const S3_CLOUDFRONT_DISTRIBUTION_ID = process.env.S3_CLOUDFRONT_DISTRIBUTION_ID
 
 const targetDir = 'dist'
 
@@ -19,7 +20,8 @@ const uploader = new Uploader({
     credentials: {
         accessKeyId: S3_ACCESS_KEY_ID,
         secretAccessKey: S3_SECRET_ACCESS_KEY
-    }
+    },
+    cloudFrontDistributionId: S3_CLOUDFRONT_DISTRIBUTION_ID
 })
 
 async function deploy () {
@@ -31,6 +33,9 @@ async function deploy () {
             targetDir,
             {
                 ACL: 'public-read',
+            },
+            {
+                invalidate: true,
             }
         )
 

@@ -70,6 +70,56 @@
     "@smithy/util-utf8" "^2.0.0"
     tslib "^2.6.2"
 
+"@aws-sdk/client-cloudfront@^3.658.1":
+  version "3.658.1"
+  resolved "https://registry.yarnpkg.com/@aws-sdk/client-cloudfront/-/client-cloudfront-3.658.1.tgz#8035eb43d897382800dbca699dc9908cdf7e0b35"
+  integrity sha512-v5bfHSHJ3LbTeWzxV1HReF0HuCwOZO4L5L1Esc5CSt8IX+pfTRR7i3iY7qTt5CfDsHQP4UEETrSEdKGwOl63YA==
+  dependencies:
+    "@aws-crypto/sha256-browser" "5.2.0"
+    "@aws-crypto/sha256-js" "5.2.0"
+    "@aws-sdk/client-sso-oidc" "3.658.1"
+    "@aws-sdk/client-sts" "3.658.1"
+    "@aws-sdk/core" "3.658.1"
+    "@aws-sdk/credential-provider-node" "3.658.1"
+    "@aws-sdk/middleware-host-header" "3.654.0"
+    "@aws-sdk/middleware-logger" "3.654.0"
+    "@aws-sdk/middleware-recursion-detection" "3.654.0"
+    "@aws-sdk/middleware-user-agent" "3.654.0"
+    "@aws-sdk/region-config-resolver" "3.654.0"
+    "@aws-sdk/types" "3.654.0"
+    "@aws-sdk/util-endpoints" "3.654.0"
+    "@aws-sdk/util-user-agent-browser" "3.654.0"
+    "@aws-sdk/util-user-agent-node" "3.654.0"
+    "@aws-sdk/xml-builder" "3.654.0"
+    "@smithy/config-resolver" "^3.0.8"
+    "@smithy/core" "^2.4.6"
+    "@smithy/fetch-http-handler" "^3.2.8"
+    "@smithy/hash-node" "^3.0.6"
+    "@smithy/invalid-dependency" "^3.0.6"
+    "@smithy/middleware-content-length" "^3.0.8"
+    "@smithy/middleware-endpoint" "^3.1.3"
+    "@smithy/middleware-retry" "^3.0.21"
+    "@smithy/middleware-serde" "^3.0.6"
+    "@smithy/middleware-stack" "^3.0.6"
+    "@smithy/node-config-provider" "^3.1.7"
+    "@smithy/node-http-handler" "^3.2.3"
+    "@smithy/protocol-http" "^4.1.3"
+    "@smithy/smithy-client" "^3.3.5"
+    "@smithy/types" "^3.4.2"
+    "@smithy/url-parser" "^3.0.6"
+    "@smithy/util-base64" "^3.0.0"
+    "@smithy/util-body-length-browser" "^3.0.0"
+    "@smithy/util-body-length-node" "^3.0.0"
+    "@smithy/util-defaults-mode-browser" "^3.0.21"
+    "@smithy/util-defaults-mode-node" "^3.0.21"
+    "@smithy/util-endpoints" "^2.1.2"
+    "@smithy/util-middleware" "^3.0.6"
+    "@smithy/util-retry" "^3.0.6"
+    "@smithy/util-stream" "^3.1.8"
+    "@smithy/util-utf8" "^3.0.0"
+    "@smithy/util-waiter" "^3.1.5"
+    tslib "^2.6.2"
+
 "@aws-sdk/client-s3@^3.348.0":
   version "3.658.1"
   resolved "https://registry.yarnpkg.com/@aws-sdk/client-s3/-/client-s3-3.658.1.tgz#d06797b8e8f32c48e3f2d8e5e34c63e92ddde7b5"
@@ -1486,11 +1536,12 @@
   resolved "https://registry.npmjs.org/@vitejs/plugin-vue/-/plugin-vue-4.2.3.tgz"
   integrity sha512-R6JDUfiZbJA9cMiguQ7jxALsgiprjBeHL5ikpXfJCH62pPHtI+JdJ5xWj6Ev73yXSlYl86+blXn1kZHQ7uElxw==
 
-"@voicenter-team/aws-uploader@^1.0.6":
-  version "1.0.6"
-  resolved "https://registry.yarnpkg.com/@voicenter-team/aws-uploader/-/aws-uploader-1.0.6.tgz#c4d6597645a440bd865a6981e6f4b4b7361c468f"
-  integrity sha512-LQpVAdZ3AlixjjgyVPm5EHtaVc8fU5ju3jv9AExb0oiqKyKtNmX9jmg/vM8Dhwo9Zc6zCHZa4cPo4EK7arR2DQ==
+"@voicenter-team/aws-uploader@^1.0.10":
+  version "1.0.10"
+  resolved "https://registry.yarnpkg.com/@voicenter-team/aws-uploader/-/aws-uploader-1.0.10.tgz#e6feee23a4c4734a057d32fa38a29dd042b20572"
+  integrity sha512-XRHM4t1VRvqX5GokOuM7bhV++aLAUSR+mCpOOUk2P+tvbVVLQCQJ3VOI1n7VRjcZpxfF95IJidOmiTPneTpRzA==
   dependencies:
+    "@aws-sdk/client-cloudfront" "^3.658.1"
     "@aws-sdk/client-s3" "^3.348.0"
     mime-types "^2.1.35"
 

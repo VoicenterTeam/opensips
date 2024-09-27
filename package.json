@@ -44,7 +44,7 @@
     "@typescript-eslint/parser": "^5.53.0",
     "@vitejs/plugin-vue": "^4.2.3",
     "@voicenter-team/eslint-config-ts": "^1.0.21",
-    "@voicenter-team/aws-uploader": "^1.0.6",
+    "@voicenter-team/aws-uploader": "^1.0.10",
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
     "eslint": "^8.35.0",

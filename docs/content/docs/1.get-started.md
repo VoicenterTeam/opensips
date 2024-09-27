@@ -8,12 +8,22 @@ navigation:
 # Getting started
 
 ## Installation
-Using npm:
+### Using npm:
 ```shell[Terminal]
 $ npm i @voicenter-team/opensips-js
 ```
 
+### Using via CDN:
+You can include the OpensipsJS library directly in your HTML file using a CDN like UNPKG or jsDelivr. This is especially useful for quick prototyping or when you don't want to set up a build environment.
+
+Add the following script tag to your HTML file:
+```html [index.html]
+<script src="https://cdn.opensipsjs.org/opensipsjs/v1.0.96/opensips-js.iife.js"></script>
+```
+This will load the library and attach the OpensipsJS class to the global window object as OpensipsJS.
+
 ## Usage
+### Using npm (ES Modules):
 Firstly lets import the library and create the OpenSIPS instance:
 ```javascript [file.js]
 import OpenSIPSJS from '@voicenter-team/opensips-js'
@@ -41,14 +51,111 @@ const openSIPSJS = new OpenSIPSJS({
     },
     modules: [ 'audio', 'video', 'msrp' ]
 })
+
+// Then you can work with the appropriate modules
+opensipsJS.audio
+opensipsJS.video
+opensipsJS.msrp
 ```
 
-Then you can work with appropriate modules:
-```javascript [file.js]
-openSIPSJS.audio
-openSIPSJS.video
-openSIPSJS.msrp
+### Using via CDN:
+After including the script via CDN, you can access the OpensipsJS class directly from the global scope.
+```html [index.html]
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OpensipsJS CDN Usage</title>
+</head>
+<body>
+  <!-- Include the library via CDN -->
+  <script src="https://cdn.opensipsjs.org/opensipsjs/v1.0.96/opensips-js.iife.js"></script>
+
+  <script>
+    // Create an instance of OpensipsJS
+    const opensipsJS = new OpensipsJS({
+      configuration: {
+        session_timers: false,
+        uri: 'sip:extension_user@domain',
+        // --- Use password or authorization_jwt to authorize
+        password: 'password',
+        // or
+        authorization_jwt: 'token',
+      },
+      socketInterfaces: ['wss://domain'],
+      pnExtraHeaders: {
+        'pn-provider': 'acme',
+        'pn-param': 'acme-param',
+        'pn-prid': 'ZH11Y4ZDJlMNzODE1NgKi0K>',
+      },
+      sipDomain: 'domain',
+      sipOptions: {
+        session_timers: false,
+        extraHeaders: ['X-Bar: bar'],
+        pcConfig: {},
+      },
+      modules: ['audio', 'video', 'msrp'],
+    });
+
+    // Now you can use the modules
+    opensipsJS.audio;
+    opensipsJS.video;
+    opensipsJS.msrp;
+  </script>
+</body>
+</html>
 ```
+Note: When using the library via CDN, ensure that you replace 'sip:extension_user@domain', 'password', 'token', and other placeholders with your actual configuration values.
+
+### Using ES Modules via CDN:
+If you prefer using ES modules in the browser and your environment supports them, you can import the ES module build directly from the CDN.
+```html [index.html]
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OpensipsJS ES Module CDN Usage</title>
+</head>
+<body>
+  <script type="module">
+    import OpensipsJS from 'https://cdn.opensipsjs.org/opensipsjs/v1.0.96/opensips-js.es.js';
+    // Or using jsDelivr
+    // import OpensipsJS from 'https://cdn.jsdelivr.net/npm/@voicenter-team/opensips-js/dist/opensips-js.es.js';
+
+    const opensipsJS = new OpensipsJS({
+      configuration: {
+        session_timers: false,
+        uri: 'sip:extension_user@domain',
+        // --- Use password or authorization_jwt to authorize
+        password: 'password',
+        // or
+        authorization_jwt: 'token',
+      },
+      socketInterfaces: ['wss://domain'],
+      pnExtraHeaders: {
+        'pn-provider': 'acme',
+        'pn-param': 'acme-param',
+        'pn-prid': 'ZH11Y4ZDJlMNzODE1NgKi0K>',
+      },
+      sipDomain: 'domain',
+      sipOptions: {
+        session_timers: false,
+        extraHeaders: ['X-Bar: bar'],
+        pcConfig: {},
+      },
+      modules: ['audio', 'video', 'msrp'],
+    });
+
+    // Use the modules as before
+    opensipsJS.audio;
+    opensipsJS.video;
+    opensipsJS.msrp;
+  </script>
+</body>
+</html>
+```
+
+**Important**: When using ES modules via CDN:
+* Ensure your browser supports ES modules.
+* The `type="module"` attribute is necessary in the `<script>` tag.
 
 ## OpensipsJS
 ### OpensipsJS instance methods
@@ -59,35 +166,35 @@ openSIPSJS.msrp
 
 ### OpensipsJS events
 
-| Event      | Callback interface    | Description |
-|----------------|---------|---------------|
-| `ready` | `() => {}`  |   Emitted when opensips is initialized   |
-| `changeActiveCalls`   | `(calls: { [key: string]: ICall }) => {}`  |  Emitted when active calls are changed  |
-| `callAddingInProgressChanged`   | `(callId: string / undefined) => {}`  |  Emitted when any call adding state is changed  |
-| `changeAvailableDeviceList`   | `(devices: Array<MediaDeviceInfo>) => {}`  |  Emitted when the list of available devices is changed  |
-| `changeActiveInputMediaDevice`   | `(deviceId: string) => {}`  |  Emitted when active input device is changed |
-| `changeActiveOutputMediaDevice`   | `(deviceId: string) => {}`  |  Emitted when active output device is changed  |
-| `changeMuteWhenJoin`   | `(value: boolean) => {}`  |  Emitted when mute on join value is changed  |
-| `changeIsDND`   | `(value: boolean) => {}`  |  Emitted when is DND value is changed  |
-| `changeIsMuted`   | `(value: boolean) => {}`  |  Emitted when mute value is changed  |
-| `changeActiveStream`   | `(stream: MediaStream) => {}`  |  Emitted when active stream was changed  |
-| `changeCallVolume`   | `(callId: string, volume: number) => {}`  |  Emits the volume meter's value for each participant   |
-| `currentActiveRoomChanged`   | `(number / undefined) => {}`  |  Emitted when active room is changed  |
-| `addRoom`   | `({room: IRoom, roomList: {[id: number]: IRoom}}) => {}`  |  Emitted when new room was added  |
-| `updateRoom`   | `({room: IRoom, roomList: {[id: number]: IRoom}}) => {}`  |  Emitted when room was updated  |
-| `removeRoom`   | `({room: IRoom, roomList: {[p: number]: IRoom}}) => {}`  |  Emitted when room was deleted  |
+| Event                           | Callback interface                                       | Description                                           |
+|---------------------------------|----------------------------------------------------------|-------------------------------------------------------|
+| `ready`                         | `() => {}`                                               | Emitted when opensips is initialized                  |
+| `changeActiveCalls`             | `(calls: { [key: string]: ICall }) => {}`                | Emitted when active calls are changed                 |
+| `callAddingInProgressChanged`   | `(callId: string / undefined) => {}`                     | Emitted when any call adding state is changed         |
+| `changeAvailableDeviceList`     | `(devices: Array<MediaDeviceInfo>) => {}`                | Emitted when the list of available devices is changed |
+| `changeActiveInputMediaDevice`  | `(deviceId: string) => {}`                               | Emitted when active input device is changed           |
+| `changeActiveOutputMediaDevice` | `(deviceId: string) => {}`                               | Emitted when active output device is changed          |
+| `changeMuteWhenJoin`            | `(value: boolean) => {}`                                 | Emitted when mute on join value is changed            |
+| `changeIsDND`                   | `(value: boolean) => {}`                                 | Emitted when is DND value is changed                  |
+| `changeIsMuted`                 | `(value: boolean) => {}`                                 | Emitted when mute value is changed                    |
+| `changeActiveStream`            | `(stream: MediaStream) => {}`                            | Emitted when active stream was changed                |
+| `changeCallVolume`              | `(callId: string, volume: number) => {}`                 | Emits the volume meter's value for each participant   |
+| `currentActiveRoomChanged`      | `(number / undefined) => {}`                             | Emitted when active room is changed                   |
+| `addRoom`                       | `({room: IRoom, roomList: {[id: number]: IRoom}}) => {}` | Emitted when new room was added                       |
+| `updateRoom`                    | `({room: IRoom, roomList: {[id: number]: IRoom}}) => {}` | Emitted when room was updated                         |
+| `removeRoom`                    | `({room: IRoom, roomList: {[p: number]: IRoom}}) => {}`  | Emitted when room was deleted                         |
 
 WebrtcMetricsConfigType
 
-| Parameter      | Type      | Default |
-|----------------|-----------|----------|
-| `refreshEvery` | `number` | `undefined`  |
-| `startAfter`   | `number` | `undefined`  |
-| `startAfter`   | `number` | `undefined`  |
+| Parameter      | Type      | Default     |
+|----------------|-----------|-------------|
+| `refreshEvery` | `number`  | `undefined` |
+| `startAfter`   | `number`  | `undefined` |
+| `startAfter`   | `number`  | `undefined` |
 | `verbose`      | `boolean` | `undefined` |
-| `pname`        | `string` | `undefined`  |
-| `cid`          | `string` | `undefined`  |
-| `uid`          | `string` | `undefined`  |
+| `pname`        | `string`  | `undefined` |
+| `cid`          | `string`  | `undefined` |
+| `uid`          | `string`  | `undefined` |
 | `record`       | `boolean` | `undefined` |
 | `ticket`       | `boolean` | `undefined` |
 
@@ -170,41 +277,41 @@ Also, there are next public fields on OpensipsJS instance:
 
 VisualizationConfigType
 
-| Parameter      | Type                   | Default |
-|----------------|------------------------|---------|
-| `foregroundThreshold` | `number` | `0.5`  |
-| `maskOpacity`   | `number`| `0.5`  |
-| `maskBlur`   | `number`| `0`  |
-| `pixelCellWidth`      | `number`| `10` |
-| `backgroundBlur`        | `number`| `15`  |
-| `edgeBlur`          | `number`| `3`  |
+| Parameter             | Type     | Default |
+|-----------------------|----------|---------|
+| `foregroundThreshold` | `number` | `0.5`   |
+| `maskOpacity`         | `number` | `0.5`   |
+| `maskBlur`            | `number` | `0`     |
+| `pixelCellWidth`      | `number` | `10`    |
+| `backgroundBlur`      | `number` | `15`    |
+| `edgeBlur`            | `number` | `3`     |
 
 KonvaDrawerOptions
 
-| Parameter      | Type      |
-|----------------|-----------|
+| Parameter   | Type     |
+|-------------|----------|
 | `container` | `number` |
-| `width`   | `number` |
-| `height`   | `number` |
+| `width`     | `number` |
+| `height`    | `number` |
 
 KonvaScreenShareDrawerOptions
 
-| Parameter      | Type      |
-|----------------|-----------|
+| Parameter     | Type     |
+|---------------|----------|
 | `strokeWidth` | `number` |
-| `strokeColor`   | `string` |
+| `strokeColor` | `string` |
 
 ### Video events
 
-| Event      | Callback interface    | Description |
-|----------------|---------|---------------|
-| `member:join` | `(data) => {}`  |   Emitted when new member is joined   |
-| `member:update`   | `(data) => {}`  |  Emitted when member data is changed  |
-| `member:hangup`   | `(data) => {}`  |  Emitted when member leaves the conference  |
-| `hangup`   | `() => {}`  |  Emitted when we leave the conference  |
-| `screenShare:start`   | `() => {}`  |  Emitted when we share a screen  |
-| `screenShare:stop`   | `() => {}`  |  Emitted when we stop a screen sharing  |
-| `reconnect`   | `() => {}`  |  Emitted when reconnecting  |
-| `mediaConstraintsChange`   | `() => {}`  |  Emitted when media constraints change |
-| `metrics:report`   | `() => {}`  |  Emitted on metric report |
-| `metrics:stop`   | `() => {}`  |  Emitted when metrics are stopped |
+| Event                    | Callback interface | Description                               |
+|--------------------------|--------------------|-------------------------------------------|
+| `member:join`            | `(data) => {}`     | Emitted when new member is joined         |
+| `member:update`          | `(data) => {}`     | Emitted when member data is changed       |
+| `member:hangup`          | `(data) => {}`     | Emitted when member leaves the conference |
+| `hangup`                 | `() => {}`         | Emitted when we leave the conference      |
+| `screenShare:start`      | `() => {}`         | Emitted when we share a screen            |
+| `screenShare:stop`       | `() => {}`         | Emitted when we stop a screen sharing     |
+| `reconnect`              | `() => {}`         | Emitted when reconnecting                 |
+| `mediaConstraintsChange` | `() => {}`         | Emitted when media constraints change     |
+| `metrics:report`         | `() => {}`         | Emitted on metric report                  |
+| `metrics:stop`           | `() => {}`         | Emitted when metrics are stopped          |
