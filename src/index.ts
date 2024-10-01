@@ -132,6 +132,7 @@ class OpenSIPSJS extends UA {
     //private isCallAddingInProgress: string | undefined
     private isMSRPInitializingValue: boolean | undefined
     private isReconnecting = false
+    private activeConnection = false
 
     public audio: AudioModule = null
     public msrp: MSRPModule = null
@@ -221,6 +222,7 @@ class OpenSIPSJS extends UA {
                 this.logger.log('Connected to', this.options.socketInterfaces[0])
                 this.setConnected(true)
                 this.isReconnecting = false
+                this.activeConnection = true
             }
         )
 
@@ -229,14 +231,20 @@ class OpenSIPSJS extends UA {
             () => {
                 if (this.isReconnecting) {
                     return
+                } else {
+                    this.isReconnecting = true
                 }
+
                 this.logger.log('Disconnected from', this.options.socketInterfaces[0])
                 this.logger.log('Reconnecting to', this.options.socketInterfaces[0])
-                this.isReconnecting = true
+
                 this.stop()
                 this.setInitialized(false)
                 this.setConnected(false)
-                setTimeout(this.start.bind(this), 5000)
+
+                if (this.activeConnection) {
+                    setTimeout(this.start.bind(this), 5000)
+                }
             }
         )
 
@@ -244,6 +252,11 @@ class OpenSIPSJS extends UA {
         this.start()
 
         return this
+    }
+
+    disconnect () {
+        this.activeConnection = false
+        this.stop()
     }
 
     /*public get sipOptions () {

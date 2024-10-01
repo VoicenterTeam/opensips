@@ -83,6 +83,7 @@ export default class RTCSession extends EventEmitter {
 
         // The RTCPeerConnection instance (public attribute).
         this._connection = null
+        this._screenShareConnection = null
 
         // Prevent races on serial PeerConnction operations.
         this._connectionPromiseQueue = Promise.resolve()
@@ -161,8 +162,8 @@ export default class RTCSession extends EventEmitter {
             username: 'turn2es21e'
         } ]
 
-        const opaqueRandomString = uuidv4().replace(/-/g, '').slice(0, 12)
-        this.opaque_id = `videoroomtest-${opaqueRandomString}`
+        this.opaque_id = this.generateOpaqueId()
+        this.screenShareOpaqueId = null
 
         // Custom session empty object for high level use.
         this._data = {}
@@ -280,6 +281,11 @@ export default class RTCSession extends EventEmitter {
 
     getPTypeHeader (type) {
         return `PTYPE: ${type}`
+    }
+
+    generateOpaqueId () {
+        const opaqueRandomString = uuidv4().replace(/-/g, '').slice(0, 12)
+        return `videoroomtest-${opaqueRandomString}`
     }
 
     connect (target, displayName, options = {}, initCallback) {
@@ -2601,6 +2607,86 @@ export default class RTCSession extends EventEmitter {
 
         return sender.dtmf
     }*/
+
+    startScreenShare () {
+        this.screenShareOpaqueId = this.generateOpaqueId()
+
+        this._screenShareConnection = new RTCPeerConnection({
+            iceServers: this.stunServers,
+        })
+
+        this._screenShareConnection.onicecandidate = (event) => {
+
+            if (
+                this._screenShareConnection.signalingState !== 'stable' &&
+                this._screenShareConnection.signalingState !== 'have-local-offer'
+            ) {
+                console.log('skipining icecandidate event screensharing ',this._screenShareConnection.signalingState,event)
+                return
+            }
+            // TODO: should trickles be send all together with setTimeout?
+            /*this.sendTrickle(event.candidate || null)
+                .catch((err) => {
+                    logger.warn(err)
+                })*/
+        }
+    }
+
+    sendScreenShareJoin () {
+        const registerBody = {
+            janus: 'message',
+            body: {
+                request: 'join',
+                room: this.room_id,
+                ptype: 'publisher',
+                display: this.display_name + ' (Screen Share)',
+                opaque_id: this.opaque_id,
+            },
+            handle_id: this.handle_id,
+            session_id: this.session_id // TODO: If we need session_id here
+        }
+
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ] // TODO: If we need it here
+
+        this.sendRequest(JsSIP_C.SUBSCRIBE, {
+            extraHeaders: registerExtraHeaders,
+            body: JSON.stringify(registerBody),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    if (response.status_code === 200) {
+                        //this.subscribeSent = true
+
+                        if (response.body) {
+                            try {
+                                const bodyParsed = JSON.parse(response.body) || {}
+                                if (bodyParsed.plugindata?.data?.publishers){
+                                    this.receivePublishers(bodyParsed)
+                                }
+                            } catch (e) {
+                                console.error(e)
+                            }
+                        }
+
+                        /*if (this.lastTrickleReceived && !this.isConfigureSent) {
+                            this.addTracks(this.stream.getTracks())
+
+                            this._ua.emit('changeMainVideoStream', {
+                                name: this.display_name,
+                                stream: this.stream
+                            })
+
+                            this._sendConfigureMessage({
+                                audio: true,
+                                video: true,
+                            }).then(() => {})
+                        }*/
+
+                        //this._ua.emit('conferenceStart')
+                    }
+                },
+            }
+        })
+    }
 
     requestAudioAndVideoPermissions () {
         return this.loadStream()
