@@ -14,6 +14,8 @@ import Transport from 'jssip/lib/Transport'
 import Exceptions from 'jssip/lib/Exceptions'
 import URI from 'jssip/lib/URI'
 import SIPMessage from 'jssip/lib/SIPMessage'
+//import { MySuperScreenPlugin } from '@/lib/janus/BasePlugin'
+import { BaseNewStreamPlugin, BaseProcessStreamPlugin } from '@/lib/janus/BasePlugin'
 
 //import TestSession from '@/lib/janus/testSession'
 
@@ -71,6 +73,9 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     _janus_sessions: any[] = []
 
+    protected newStreamPlugins: Array<BaseNewStreamPlugin> = []
+    protected processStreamPlugins: Array<BaseProcessStreamPlugin> = []
+
     //_janus_session: any = null
 
     constructor (configuration: UAConfiguration) {
@@ -103,6 +108,14 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         session.connect(target, displayName, options)
 
         return session
+    }
+
+    startScreenShare () {
+        logger.debug('startScreenShare()')
+
+        for (const idx in this._janus_sessions) {
+            this._janus_sessions[idx].connectScreenShare()
+        }
     }
 
     _loadConfig (configuration) {
@@ -279,7 +292,19 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     newJanusSession (session, data) {
         this._janus_sessions[session.id] = session
+
+        this.newStreamPlugins.forEach((plugin) => {
+            plugin.setSession(session)
+        })
+
+        this.processStreamPlugins.forEach((plugin) => {
+            plugin.setSession(session)
+        })
         this.emit('newJanusSession', data)
+    }
+
+    kill () {
+
     }
 
     /**

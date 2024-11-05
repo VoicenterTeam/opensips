@@ -10,6 +10,7 @@ import { getUIDFromSession } from './helpers'
 import { ChangeVolumeEventType } from '../src/types/listeners'
 import { MODULES } from '../src/enum/modules'
 import { CallTime } from '../src/types/timer'
+import { ScreenSharePlugin } from '../src/lib/janus/BasePlugin'
 //import UA from 'jssip/lib/UA'
 //import JsSIP from 'jssip/lib/JsSIP'
 
@@ -57,6 +58,8 @@ const messagesContainerEl = document.getElementById('messagesContainer')
 
 const audioChangeButtonEl = document.getElementById('audioChangeButton')
 const videoChangeButtonEl = document.getElementById('videoChangeButton')
+
+const screenShareButtonEl = document.getElementById('screenShareButton')
 
 /* UI Interaction */
 function selectTab (evt, tab) {
@@ -558,6 +561,9 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
             modules
         })
 
+        const screenSharePlugin = new ScreenSharePlugin()
+        openSIPSJS.use(screenSharePlugin)
+
         /* openSIPSJS Listeners */
         openSIPSJS
             .on('connection', () => {
@@ -741,6 +747,14 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 videoContainer.appendChild(videoElement)
                 videoContainer.appendChild(nameElement)
             })
+            .on('startScreenShare', (stream ) => {
+                console.log('startScreenShare', stream)
+                screenShareButtonEl.innerText = 'Stop Screen Share'
+            })
+            .on('stopScreenShare', () => {
+                console.log('stopScreenShare')
+                screenShareButtonEl.innerText = 'Start Screen Share'
+            })
             .on('memberJoin', (data) => {
                 const videosContainer = document.getElementById('participantsVideoElements')
 
@@ -879,6 +893,17 @@ videoChangeButtonEl?.addEventListener('click', (event) => {
         openSIPSJS.video.stopVideo()
     } else {
         openSIPSJS.video.startVideo()
+    }
+})
+
+screenShareButtonEl?.addEventListener('click', (event) => {
+    event.preventDefault()
+
+    //openSIPSJS.video.startScreenShare()
+    if (screenShareButtonEl.innerText === 'Start Screen Share') {
+        openSIPSJS.getPlugin('ScreenSharePlugin').connect({})
+    } else {
+        openSIPSJS.getPlugin('ScreenSharePlugin').kill()
     }
 })
 
@@ -1081,7 +1106,7 @@ dtmfForm?.addEventListener(
 
         const dtmfTarget = dtmfInputEl.value
 
-        openSIPSJS.audio.sendDTMF(callsInActiveRoom[0].id, dtmfTarget)
+        openSIPSJS.audio.sendDTMF(callsInActiveRoom[0]._id, dtmfTarget)
     })
 
 roomSelectEl?.addEventListener(

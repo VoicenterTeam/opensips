@@ -57,4 +57,8 @@ export class VideoModule {
     stopVideo () {
         this.context.enableJanusVideo(false)
     }
+
+    startScreenShare () {
+        this.context.startScreenShare()
+    }
 }

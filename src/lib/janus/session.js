@@ -27,6 +27,7 @@ import RTCSession_ReferNotifier from 'jssip/lib/RTCSession/ReferNotifier'
 //const RTCSession_ReferSubscriber = require('./RTCSession/ReferSubscriber')
 import RTCSession_ReferSubscriber from 'jssip/lib/RTCSession/ReferSubscriber'
 import URI from 'jssip/lib/URI'
+import ScreenSharePlugin from '@/lib/janus/ScreenSharePlugin'
 
 import P_TYPES from '../../enum/p.types'
 
@@ -151,6 +152,7 @@ export default class RTCSession extends EventEmitter {
         // Map of ReferSubscriber instances indexed by the REFER's CSeq number.
         this._referSubscribers = {}
         this._candidates = []
+        this._screenShareCandidates = []
         this.publishers = []
         this.private_id = null
         this.memberList = {}
@@ -163,7 +165,7 @@ export default class RTCSession extends EventEmitter {
         } ]
 
         this.opaque_id = this.generateOpaqueId()
-        this.screenShareOpaqueId = null
+        this.screen_share_opaque_id = this.generateOpaqueId()
 
         // Custom session empty object for high level use.
         this._data = {}
@@ -330,6 +332,7 @@ export default class RTCSession extends EventEmitter {
         target = this._ua.normalizeTarget(target)
         console.log('normalizeTarget target', target)
         this.room_id = target.user
+        this.target = target
 
         if (!target) {
             throw new TypeError(`Invalid target: ${originalTarget}`)
@@ -412,6 +415,11 @@ export default class RTCSession extends EventEmitter {
         this._newJanusSession('local', this._request)
 
         this._sendInitialRequest(mediaConstraints, rtcOfferConstraints, mediaStream)
+    }
+
+    connectScreenShare (options = {}) {
+        const screenSharePlugin = new ScreenSharePlugin(this)
+        screenSharePlugin.connect(options)
     }
 
     init_incoming (request, initCallback) {
@@ -1431,6 +1439,7 @@ export default class RTCSession extends EventEmitter {
      * In dialog Request Reception
      */
     receiveRequest (request) {
+        console.log('mmm receiveRequest 1', request)
         logger.debug('receiveRequest()')
 
         if (request.method === JsSIP_C.CANCEL) {
@@ -1525,6 +1534,7 @@ export default class RTCSession extends EventEmitter {
                     }
                     break
                 case JsSIP_C.INVITE:
+                    console.log('mmm invite 1')
                     if (this._status === C.STATUS_CONFIRMED) {
                         if (request.hasHeader('replaces')) {
                             this._receiveReplaces(request)
@@ -1778,6 +1788,8 @@ export default class RTCSession extends EventEmitter {
     }
 
     _createRTCConnection (pcConfig, rtcConstraints) {
+        console.log('pcConfig', pcConfig)
+        console.log('rtcConstraints', rtcConstraints)
         const config = {
             iceServers: this.stunServers,
             sdpSemantics: 'unified-plan',
@@ -1856,6 +1868,7 @@ export default class RTCSession extends EventEmitter {
             // Create Offer or Answer.
             .then(() => {
                 if (type === 'offer') {
+                    console.log('AAA createOffer', constraints)
                     return connection.createOffer(constraints)
                         .catch((error) => {
                             logger.warn('emit "peerconnection:createofferfailed" [error:%o]', error)
@@ -1877,6 +1890,8 @@ export default class RTCSession extends EventEmitter {
             })
             // Set local description.
             .then((desc) => {
+                console.log('AAA setLocalDescription', desc)
+                this.jsepOffer = desc
                 return connection.setLocalDescription(desc)
                     .catch((error) => {
                         this._rtcReady = true
@@ -2591,6 +2606,51 @@ export default class RTCSession extends EventEmitter {
             })
     }
 
+    async _sendInitialScreenShareRequest (mediaConstraints, rtcOfferConstraints, mediaStream) {
+        //this.ackSent = false
+        //this.publisherSubscribeSent = false
+
+        const request_sender = new RequestSender(this._ua, this._screen_share_request, {
+            onRequestTimeout: () => {
+                this.onRequestTimeout()
+            },
+            onTransportError: () => {
+                this.onTransportError()
+            },
+            // Update the request on authentication.
+            onAuthenticated: (request) => {
+                this._screen_share_request = request
+            },
+            onReceiveResponse: (response) => {
+                this._receiveScreenShareInviteResponse(response)
+            }
+        })
+
+        await this.loadScreenShareStream()
+
+        this.addScreenShareTracks(this.screenShareStream.getTracks())
+
+        const options = {
+            audio: false,
+            video: true,
+        }
+        this.screen_share_jsep_offer = await this._screenShareConnection.createOffer(options)
+
+        await this._screenShareConnection.setLocalDescription(this.screen_share_jsep_offer)
+
+        const inviteData = {
+            janus: 'attach',
+            plugin: 'janus.plugin.videoroom',
+            opaque_id: this.screen_share_opaque_id
+        }
+
+        const bodyStringified = JSON.stringify(inviteData)
+
+        this._screen_share_request.body = bodyStringified
+
+        request_sender.send()
+    }
+
     /**
      * Get DTMF RTCRtpSender.
      */
@@ -2608,31 +2668,147 @@ export default class RTCSession extends EventEmitter {
         return sender.dtmf
     }*/
 
-    startScreenShare () {
-        this.screenShareOpaqueId = this.generateOpaqueId()
-
+    _createScreenShareRTCConnection () {
         this._screenShareConnection = new RTCPeerConnection({
-            iceServers: this.stunServers,
+            iceServers: [
+                {
+                    urls: 'stun:turn.voicenter.co',
+                    credential: 'kxsjahnsdjns3eds23esd',
+                    username: 'turn2es21e'
+                }
+            ],
         })
 
+        let iceCandidateTimeout
+
+        // Send ICE events to Janus.
         this._screenShareConnection.onicecandidate = (event) => {
 
-            if (
-                this._screenShareConnection.signalingState !== 'stable' &&
-                this._screenShareConnection.signalingState !== 'have-local-offer'
-            ) {
+            console.log('AAA onicecandidate', event)
+            if (this._screenShareConnection.signalingState !== 'stable' && this._screenShareConnection.signalingState !== 'have-local-offer') {
                 console.log('skipining icecandidate event screensharing ',this._screenShareConnection.signalingState,event)
                 return
             }
-            // TODO: should trickles be send all together with setTimeout?
+            console.log('AAA send trickle')
             /*this.sendTrickle(event.candidate || null)
                 .catch((err) => {
                     logger.warn(err)
                 })*/
+
+            if (!event.candidate) {
+                console.log('AAA onIceCandidate 2')
+                return
+            }
+
+            this._screenShareCandidates.push(event.candidate)
+
+            clearTimeout(iceCandidateTimeout)
+
+            // Debounce calling configure request with trickles till the last trickle
+            iceCandidateTimeout = setTimeout(() => {
+                console.log('AAA setTimeout')
+                this.lastScreenShareTrickleReceived = true
+
+                if (this.screenShareSubscribeSent && !this.isScreenShareConfigureSent) {
+                    //this.addScreenShareTracks(this.screenShareStream.getTracks())
+
+                    /*this._ua.emit('changeScreenShareStream', {
+                        name: this.display_name + ' (Screen Share)',
+                        stream: this.screenShareStream
+                    })*/
+
+                    this._sendScreenShareConfigureMessage({
+                        audio: true,
+                        video: true,
+                    }).then(() => {
+                        //this.sendInitialState()
+                    })
+                }
+            }, 500)
         }
     }
 
-    sendScreenShareJoin () {
+    /*async startScreenShare () {
+        //this.screen_share_opaque_id = this.generateOpaqueId()
+
+        //await this.loadScreenShareStream()
+
+        this._screenShareConnection = new RTCPeerConnection({
+            iceServers: [
+                {
+                    urls: 'stun:turn.voicenter.co',
+                    credential: 'kxsjahnsdjns3eds23esd',
+                    username: 'turn2es21e'
+                }
+            ],
+        })
+
+        let iceCandidateTimeout
+
+        // Send ICE events to Janus.
+        this._screenShareConnection.onicecandidate = (event) => {
+
+            console.log('AAA onicecandidate', event)
+            if (this._screenShareConnection.signalingState !== 'stable' && this._screenShareConnection.signalingState !== 'have-local-offer') {
+                console.log('skipining icecandidate event screensharing ',this._screenShareConnection.signalingState,event)
+                return
+            }
+            console.log('AAA send trickle')
+            /!*this.sendTrickle(event.candidate || null)
+                .catch((err) => {
+                    logger.warn(err)
+                })*!/
+
+            if (!event.candidate) {
+                console.log('AAA onIceCandidate 2')
+                return
+            }
+
+            this._screenShareCandidates.push(event.candidate)
+
+            clearTimeout(iceCandidateTimeout)
+
+            // Debounce calling configure request with trickles till the last trickle
+            iceCandidateTimeout = setTimeout(() => {
+                console.log('AAA setTimeout')
+                this.lastScreenShareTrickleReceived = true
+
+                if (this.screenShareSubscribeSent && !this.isScreenShareConfigureSent) {
+                    //this.addScreenShareTracks(this.screenShareStream.getTracks())
+
+                    this._ua.emit('changeScreenShareStream', {
+                        name: this.display_name + ' (Screen Share)',
+                        stream: this.screenShareStream
+                    })
+
+                    this._sendScreenShareConfigureMessage({
+                        audio: true,
+                        video: true,
+                    }).then(() => {
+                        //this.sendInitialState()
+                    })
+                }
+            }, 500)
+        }
+
+        await this.loadScreenShareStream()
+
+        this.addScreenShareTracks(this.screenShareStream.getTracks())
+
+        const options = {
+            audio: false,
+            video: true,
+        }
+        const jsepOffer = await this._screenShareConnection.createOffer(options)
+
+        await this._screenShareConnection.setLocalDescription(jsepOffer)
+
+        this.sendScreenShareJoin(jsepOffer)
+    }*/
+
+    /*sendScreenShareJoin (jsepOffer) {
+        // this.screen_share_client_id = uuidv4()
+
         const registerBody = {
             janus: 'message',
             body: {
@@ -2640,21 +2816,22 @@ export default class RTCSession extends EventEmitter {
                 room: this.room_id,
                 ptype: 'publisher',
                 display: this.display_name + ' (Screen Share)',
-                opaque_id: this.opaque_id,
+                //clientID: this.screen_share_client_id,
+                opaque_id: this.screen_share_opaque_id,
             },
-            handle_id: this.handle_id,
-            session_id: this.session_id // TODO: If we need session_id here
+            handle_id: this.handle_id
         }
 
-        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ] // TODO: If we need it here
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ]
 
         this.sendRequest(JsSIP_C.SUBSCRIBE, {
             extraHeaders: registerExtraHeaders,
             body: JSON.stringify(registerBody),
             eventHandlers: {
                 onSuccessResponse: async (response) => {
+                    console.log('AAA join response', response.status_code)
                     if (response.status_code === 200) {
-                        //this.subscribeSent = true
+                        this.screenShareSubscribeSent = true
 
                         if (response.body) {
                             try {
@@ -2667,26 +2844,26 @@ export default class RTCSession extends EventEmitter {
                             }
                         }
 
-                        /*if (this.lastTrickleReceived && !this.isConfigureSent) {
-                            this.addTracks(this.stream.getTracks())
+                        if (this.lastScreenShareTrickleReceived && !this.isScreenShareConfigureSent) {
+                            //this.addScreenShareTracks(this.screenShareStream.getTracks())
 
-                            this._ua.emit('changeMainVideoStream', {
-                                name: this.display_name,
-                                stream: this.stream
+                            this._ua.emit('changeScreenShareStream', {
+                                name: this.display_name + ' (Screen Share)',
+                                stream: this.screenShareStream
                             })
 
-                            this._sendConfigureMessage({
+                            this._sendScreenShareConfigureMessage({
                                 audio: true,
                                 video: true,
                             }).then(() => {})
-                        }*/
+                        }
 
                         //this._ua.emit('conferenceStart')
                     }
                 },
             }
         })
-    }
+    }*/
 
     requestAudioAndVideoPermissions () {
         return this.loadStream()
@@ -2719,6 +2896,28 @@ export default class RTCSession extends EventEmitter {
         }
     }
 
+    async loadScreenShareStream () {
+        try {
+            this.screenShareStream = await navigator.mediaDevices.getDisplayMedia()
+            this.screenShareStream.getVideoTracks()[0].onended = () => {
+                // TODO: add onStopSharing method
+                //this.onStopSharing()
+            }
+
+        } catch (e) {
+            //await this.onStopSharing()
+            return
+        }
+        // this.trackMicrophoneVolume()
+        return this.screenShareStream
+    }
+
+    addScreenShareTracks (tracks) {
+        tracks.forEach((track) => {
+            this._screenShareConnection.addTrack(track)
+        })
+    }
+
     addTracks (tracks) {
         tracks.forEach((track) => {
             this._connection.addTrack(track)
@@ -2741,8 +2940,10 @@ export default class RTCSession extends EventEmitter {
             offerToReceiveAudio: false,
             offerToReceiveVideo: false
         }
-        const jsepOffer = await this._connection.createOffer(offerOptions)
-        await this._connection.setLocalDescription(jsepOffer)
+
+        // TODO: don't create offer here as it is already created
+        //const jsepOffer = await this._connection.createOffer(offerOptions)
+        //await this._connection.setLocalDescription(jsepOffer)
 
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
@@ -2759,7 +2960,7 @@ export default class RTCSession extends EventEmitter {
                 filename: this.getRecordFileName(),
                 ...options
             },
-            jsep: jsepOffer,
+            jsep: this.jsepOffer,
             handle_id: this.handle_id,
             session_id: this.session_id
         }
@@ -2787,6 +2988,66 @@ export default class RTCSession extends EventEmitter {
                     await this._connection.setRemoteDescription(parsed.jsep)
                     //await this.processIceCandidates()
                     this._candidates = []
+                },
+            }
+        })
+    }
+
+    async _sendScreenShareConfigureMessage (options) {
+        /*const offerOptions = {
+            offerToReceiveAudio: false,
+            offerToReceiveVideo: false
+        }
+        const jsepOffer = await this._screenShareConnection.createOffer(offerOptions)
+        await this._screenShareConnection.setLocalDescription(jsepOffer)*/
+
+        const candidatesArray = this._screenShareCandidates.map((candidate) => ({
+            janus: 'trickle',
+            candidate,
+            handle_id: this.screen_share_handle_id,
+            session_id: this.session_id
+        }))
+
+        const configureBody = {
+            janus: 'message',
+            body: {
+                request: 'configure',
+                record: true,
+                filename: this.getRecordFileName(),
+                ...options
+            },
+            jsep: this.screen_share_jsep_offer,
+            handle_id: this.screen_share_handle_id,
+            session_id: this.session_id
+        }
+
+        const body = {
+            configure: configureBody,
+            trickles: [ ...candidatesArray ]
+        }
+
+        const extraHeaders = [
+            'Content-Type: application/json',
+            this.getPTypeHeader(P_TYPES.ICE)
+        ]
+
+        this.sendRequest(JsSIP_C.INFO, {
+            extraHeaders,
+            body: JSON.stringify(body),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    console.log('mmm configure response', response)
+                    this.isScreenShareConfigureSent = true
+                    const messageData = response.data
+                    const messageBody = messageData.split('\r\n')
+                    console.log('mmm configure messageBody', messageBody)
+                    const data = messageBody[messageBody.length - 1]
+                    console.log('mmm configure data', data)
+                    const parsed = JSON.parse(data)
+                    console.log('mmm configure parsed', parsed)
+                    await this._screenShareConnection.setRemoteDescription(parsed.jsep)
+                    //await this.processIceCandidates()
+                    this._screenShareCandidates = []
                 },
             }
         })
@@ -2987,6 +3248,7 @@ export default class RTCSession extends EventEmitter {
     }
 
     receivePublishers (msg) {
+        console.log('AAA receivePublishers', msg)
         const unprocessedMembers = { ...this.memberList }
         msg?.plugindata?.data?.publishers.forEach((publisher) => {
 
@@ -2995,8 +3257,10 @@ export default class RTCSession extends EventEmitter {
                 !this.memberList[publisher.id]
                 && !this.myFeedList.includes(publisher.id)
                 &&  publisher.clientID !== this.client_id
+                //&&  publisher.clientID !== this.screen_share_client_id
             ) {
 
+                console.log('AAA attachMember', publisher)
                 this.memberList[publisher.id] = new Member(publisher, this)
                 this._attachMember(this.memberList[publisher.id])
             }
@@ -3116,6 +3380,11 @@ export default class RTCSession extends EventEmitter {
                                 if (response.body) {
                                     try {
                                         const bodyParsed = JSON.parse(response.body) || {}
+
+                                        if (bodyParsed.plugindata?.data?.videoroom === 'joined') {
+                                            this.myFeedList.push(bodyParsed.plugindata.data.id)
+                                        }
+
                                         if (bodyParsed.plugindata?.data?.publishers){
                                             this.receivePublishers(bodyParsed)
                                         }
@@ -3291,6 +3560,83 @@ export default class RTCSession extends EventEmitter {
         }
     }
 
+    _receiveScreenShareInviteResponse (response) {
+        console.log('mmm response.body', response)
+
+
+        if (this.screenSharePublisherSubscribeSent || !response.body) {
+            return
+        }
+
+        const parsedBody = JSON.parse(response.body)
+
+        console.log('mmm parsed response.body', response.body)
+
+        this.screen_share_handle_id = parsedBody.data.id
+        //this.client_id = uuidv4()
+
+        const registerBody = {
+            janus: 'message',
+            body: {
+                request: 'join',
+                room: this.room_id,
+                ptype: 'publisher',
+                display: this.display_name + ' (Screen Share)',
+                //clientID: this.client_id,
+                opaque_id: this.screen_share_opaque_id,
+            },
+            handle_id: this.screen_share_handle_id
+        }
+
+        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ]
+
+        this.sendRequest(JsSIP_C.SUBSCRIBE, {
+            extraHeaders: registerExtraHeaders,
+            body: JSON.stringify(registerBody),
+            eventHandlers: {
+                onSuccessResponse: async (response) => {
+                    if (response.status_code === 200) {
+                        this.screenShareSubscribeSent = true
+
+                        if (response.body) {
+                            try {
+                                const bodyParsed = JSON.parse(response.body) || {}
+
+                                if (bodyParsed.plugindata?.data?.videoroom === 'joined') {
+                                    this.myFeedList.push(bodyParsed.plugindata.data.id)
+                                }
+
+                                if (bodyParsed.plugindata?.data?.publishers){
+                                    this.receivePublishers(bodyParsed)
+                                }
+                            } catch (e) {
+                                console.error(e)
+                            }
+                        }
+
+                        if (this.lastScreenShareTrickleReceived && !this.isScreenShareConfigureSent) {
+                            //this.addTracks(this.stream.getTracks())
+
+                            /*this._ua.emit('changeMainVideoStream', {
+                                name: this.display_name,
+                                stream: this.stream
+                            })*/
+
+                            this._sendScreenShareConfigureMessage({
+                                audio: true,
+                                video: true,
+                            }).then(() => {})
+                        }
+
+                        //this._ua.emit('conferenceStart')
+                    }
+                },
+            }
+        })
+
+        this.screenSharePublisherSubscribeSent = true
+    }
+
     /**
      * Send Re-INVITE
      */
@@ -3326,6 +3672,7 @@ export default class RTCSession extends EventEmitter {
                 logger.debug('emit "sdp"')
                 this.emit('sdp', e)
 
+                console.log('AAA invite 2')
                 this.sendRequest(JsSIP_C.INVITE, {
                     extraHeaders,
                     body: sdp,

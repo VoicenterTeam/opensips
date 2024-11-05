@@ -58,6 +58,8 @@ import { VideoModule } from '@/modules/video'
 import { MSRPModule } from '@/modules/msrp'
 import { MODULES } from '@/enum/modules'
 
+import { BaseNewStreamPlugin, BaseProcessStreamPlugin } from '@/lib/janus/BasePlugin'
+
 const CALL_STATUS_UNANSWERED = 0
 
 const STORAGE_KEYS = {
@@ -138,6 +140,9 @@ class OpenSIPSJS extends UA {
     public msrp: MSRPModule = null
     public video: VideoModule = null
 
+    /*private newStreamPlugins: Array<BaseNewStreamPlugin> = []
+    private processStreamPlugins: Array<BaseProcessStreamPlugin> = []*/
+
     private listenersList: {
         [key: string]: Array<(call: any, event: ListenerEventType | undefined) => void>
     } = {}
@@ -180,6 +185,32 @@ class OpenSIPSJS extends UA {
 
     public get sipDomain () {
         return this.options.sipDomain
+    }
+
+    public use (plugin: BaseNewStreamPlugin | BaseProcessStreamPlugin) {
+        // Cannot use `use` after begin
+        const session = Object.values(this._janus_sessions)[0]
+
+        if (plugin instanceof BaseNewStreamPlugin) {
+            plugin.setOpensips(this)
+            //plugin.setSession(session)
+
+            this.newStreamPlugins.push(plugin)
+        } else if (plugin instanceof BaseProcessStreamPlugin) {
+            plugin.setOpensips(this)
+            //plugin.setSession(session)
+
+            this.processStreamPlugins.push(plugin)
+        } else {
+            throw new Error('Wrong plugin instance')
+        }
+
+        // Another if for audio
+    }
+
+    public getPlugin (name: string) {
+        return this.newStreamPlugins
+            .find(plugin => plugin.name === name) || this.processStreamPlugins.find(plugin => plugin.name === name)
     }
 
     public begin () {
