@@ -61,4 +61,12 @@ export class VideoModule {
     startScreenShare () {
         this.context.startScreenShare()
     }
+
+    startBlur () {
+        this.context.startBlur()
+    }
+
+    stopBlur () {
+        this.context.stopBlur()
+    }
 }

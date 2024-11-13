@@ -5,43 +5,10 @@ import RequestSender from 'jssip/lib/RequestSender'
 import P_TYPES from '@/enum/p.types'
 import JsSIP_C from 'jssip/lib/Constants'
 
-export class BasePlugin {
-    opensips = null
-    session = null
-    name = null
-
-    constructor (name) {
-        this.name = name
-    }
-
-    setOpensips (opensips) {
-        this.opensips = opensips
-    }
-
-    setSession (session) {
+export default class ScreenSharePluginOld {
+    constructor (session) {
         this.session = session
-    }
-
-    onMediaCreated (stream) {
-        console.log(stream)
-    }
-
-    onBeforeDestroy () {
-        console.log('onBeforeDestroy')
-    }
-
-    kill () {
-        console.log('kill')
-        this.opensips.kill(this.name)
-        //delete this.opensips.newStreamPlugins[this.name]
-        //this.opensips.getPlugin(this.name)
-    }
-}
-/*
-
-export class BaseNewStreamPlugin extends BasePlugin {
-    constructor (name) {
-        super(name)
+        this.opaqueId = this.session.generateOpaqueId()
 
         this._candidates = []
         this._subscribeSent = false
@@ -50,14 +17,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     connect (options = {}) {
-        this.opaqueId = this.session.generateOpaqueId()
-
-        /!*const mediaConstraints = Utils.cloneObject(options.mediaConstraints, {
+        /*const mediaConstraints = Utils.cloneObject(options.mediaConstraints, {
             audio: true,
             video: true
         })
         const mediaStream = options.mediaStream || null
-        const rtcOfferConstraints = options.rtcOfferConstraints || null*!/
+        const rtcOfferConstraints = options.rtcOfferConstraints || null*/
 
         const extraHeaders = Utils.cloneArray(options.extraHeaders)
 
@@ -114,10 +79,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                 return
             }
             console.log('AAA send trickle')
-            /!*this.sendTrickle(event.candidate || null)
+            /*this.sendTrickle(event.candidate || null)
                 .catch((err) => {
                     logger.warn(err)
-                })*!/
+                })*/
 
             if (!event.candidate) {
                 console.log('AAA onIceCandidate 2')
@@ -136,10 +101,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                 if (this._subscribeSent && !this._configureSent) {
                     //this.addTracks(this.stream.getTracks())
 
-                    /!*this.session._ua.emit('changeScreenShareStream', {
+                    /*this._ua.emit('changeScreenShareStream', {
                         name: this.display_name + ' (Screen Share)',
                         stream: this.stream
-                    })*!/
+                    })*/
 
                     this._sendConfigureMessage({
                         audio: true,
@@ -150,6 +115,22 @@ export class BaseNewStreamPlugin extends BasePlugin {
         }
     }
 
+    async loadStream () {
+        try {
+            this.stream = await navigator.mediaDevices.getDisplayMedia()
+            this.stream.getVideoTracks()[0].onended = () => {
+                // TODO: add onStopSharing method
+                //this.onStopSharing()
+            }
+
+        } catch (e) {
+            //await this.onStopSharing()
+            return
+        }
+        // this.trackMicrophoneVolume()
+        return this.stream
+    }
+
     addTracks (tracks) {
         tracks.forEach((track) => {
             this._connection.addTrack(track)
@@ -158,7 +139,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
     async _sendInitialRequest () {
         //this.ackSent = false
-        this.publisherSubscribeSent = false
+        //this.publisherSubscribeSent = false
 
         const request_sender = new RequestSender(this.session._ua, this._request, {
             onRequestTimeout: () => {
@@ -176,7 +157,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
             }
         })
 
-        await this.generateStream()
+        await this.loadStream()
 
         this.addTracks(this.stream.getTracks())
 
@@ -202,11 +183,14 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     _receiveInviteResponse (response) {
+        console.log('mmm response.body', response)
         if (this._publisherSubscribeSent || !response.body) {
             return
         }
 
         const parsedBody = JSON.parse(response.body)
+
+        console.log('mmm parsed response.body', response.body)
 
         this.handleId = parsedBody.data.id
         //this.client_id = uuidv4()
@@ -253,10 +237,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                         if (this._lastTrickleReceived && !this._configureSent) {
                             //this.addTracks(this.stream.getTracks())
 
-                            /!*this.session._ua.emit('changeMainVideoStream', {
+                            /*this._ua.emit('changeMainVideoStream', {
                                 name: this.display_name,
                                 stream: this.stream
-                            })*!/
+                            })*/
 
                             this._sendConfigureMessage({
                                 audio: true,
@@ -264,7 +248,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
                             })
                         }
 
-                        //this.session._ua.emit('conferenceStart')
+                        //this._ua.emit('conferenceStart')
                     }
                 },
             }
@@ -274,12 +258,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async _sendConfigureMessage (options) {
-        /!*const offerOptions = {
+        /*const offerOptions = {
             offerToReceiveAudio: false,
             offerToReceiveVideo: false
         }
         const jsepOffer = await this._connection.createOffer(offerOptions)
-        await this._connection.setLocalDescription(jsepOffer)*!/
+        await this._connection.setLocalDescription(jsepOffer)*/
 
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
@@ -331,105 +315,5 @@ export class BaseNewStreamPlugin extends BasePlugin {
                 },
             }
         })
-    }
-
-    _sendDetach () {
-        const body = {
-            janus: 'detach',
-            handle_id: this.handleId,
-            session_id: this.session.session_id
-        }
-
-        const registerExtraHeaders = [ this.session.getPTypeHeader(P_TYPES.DETACH) ]
-
-        this.session.sendRequest(JsSIP_C.INFO, {
-            extraHeaders: registerExtraHeaders,
-            body: JSON.stringify(body)
-        })
-
-        this.session._ua.emit('pluginDetach', this.name)
-    }
-
-    async stopMedia () {
-        //await this.detach()
-        if (this._connection) {
-            this._connection.close()
-            this._connection = null
-        }
-    }
-
-    async stop () {
-        const senders = this._connection.getSenders()
-
-        // Iterate through the senders and stop the tracks
-        senders.forEach(sender => {
-            const track = sender.track
-            if (track) {
-                track.stop()
-            }
-        })
-
-        // Optionally, remove the tracks from _connection (if needed)
-        senders.forEach(sender => {
-            this._connection.removeTrack(sender)
-        })
-
-        await this.stopMedia()
-
-        this._sendDetach()
-
-        this.session._ua.emit('stopScreenShare')
-    }
-
-    async generateStream () {
-        return new MediaStream()
-    }
-}
-
-export class ScreenSharePlugin extends BaseNewStreamPlugin {
-    constructor () {
-        super('ScreenSharePlugin')
-    }
-
-    async generateStream () {
-        try {
-            this.stream = await navigator.mediaDevices.getDisplayMedia()
-            this.stream.getVideoTracks()[0].onended = () => {
-                this.stopMedia()
-            }
-
-            this.session._ua.emit('startScreenShare', {
-                stream: this.stream
-            })
-        } catch (error) {
-            await this.stopMedia()
-            console.error(error)
-        }
-        // this.trackMicrophoneVolume()
-        return this.stream
-    }
-
-    async kill () {
-        await this.stop()
-
-        this.session._ua.emit('stopScreenShare')
-    }
-}
-*/
-
-export class BaseProcessStreamPlugin extends BasePlugin {
-    stream = null
-
-    process (stream) {
-        this.originalStream = stream.clone()
-
-        this.start(stream)
-    }
-
-    start (stream) {
-        return stream
-    }
-    generateStream () {
-        return true
     }
 }

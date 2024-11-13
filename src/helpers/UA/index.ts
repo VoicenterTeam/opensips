@@ -15,7 +15,8 @@ import Exceptions from 'jssip/lib/Exceptions'
 import URI from 'jssip/lib/URI'
 import SIPMessage from 'jssip/lib/SIPMessage'
 //import { MySuperScreenPlugin } from '@/lib/janus/BasePlugin'
-import { BaseNewStreamPlugin, BaseProcessStreamPlugin } from '@/lib/janus/BasePlugin'
+import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
 //import TestSession from '@/lib/janus/testSession'
 
@@ -115,6 +116,22 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
         for (const idx in this._janus_sessions) {
             this._janus_sessions[idx].connectScreenShare()
+        }
+    }
+
+    startBlur () {
+        //logger.debug('startScreenShare()')
+
+        for (const idx in this._janus_sessions) {
+            this._janus_sessions[idx].connectBlur()
+        }
+    }
+
+    stopBlur () {
+        //logger.debug('startScreenShare()')
+
+        for (const idx in this._janus_sessions) {
+            this._janus_sessions[idx].stopBlur()
         }
     }
 

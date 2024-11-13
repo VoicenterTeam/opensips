@@ -1,0 +1,5 @@
+export const DEFAULT_DRAWER_CONFIG = {
+    STROKE_WIDTH: 5,
+    STROKE_COLOR: '#000',
+    EMPTY_DRAWER_RECT_COLOR: '#fff'
+}

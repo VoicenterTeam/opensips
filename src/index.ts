@@ -58,7 +58,8 @@ import { VideoModule } from '@/modules/video'
 import { MSRPModule } from '@/modules/msrp'
 import { MODULES } from '@/enum/modules'
 
-import { BaseNewStreamPlugin, BaseProcessStreamPlugin } from '@/lib/janus/BasePlugin'
+import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
 const CALL_STATUS_UNANSWERED = 0
 
@@ -189,7 +190,7 @@ class OpenSIPSJS extends UA {
 
     public use (plugin: BaseNewStreamPlugin | BaseProcessStreamPlugin) {
         // Cannot use `use` after begin
-        const session = Object.values(this._janus_sessions)[0]
+        //const session = Object.values(this._janus_sessions)[0]
 
         if (plugin instanceof BaseNewStreamPlugin) {
             plugin.setOpensips(this)

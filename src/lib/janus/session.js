@@ -27,7 +27,8 @@ import RTCSession_ReferNotifier from 'jssip/lib/RTCSession/ReferNotifier'
 //const RTCSession_ReferSubscriber = require('./RTCSession/ReferSubscriber')
 import RTCSession_ReferSubscriber from 'jssip/lib/RTCSession/ReferSubscriber'
 import URI from 'jssip/lib/URI'
-import ScreenSharePlugin from '@/lib/janus/ScreenSharePlugin'
+import ScreenSharePluginOld from '@/lib/janus/ScreenSharePluginOld'
+import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
 
 import P_TYPES from '../../enum/p.types'
 
@@ -84,7 +85,6 @@ export default class RTCSession extends EventEmitter {
 
         // The RTCPeerConnection instance (public attribute).
         this._connection = null
-        this._screenShareConnection = null
 
         // Prevent races on serial PeerConnction operations.
         this._connectionPromiseQueue = Promise.resolve()
@@ -152,7 +152,6 @@ export default class RTCSession extends EventEmitter {
         // Map of ReferSubscriber instances indexed by the REFER's CSeq number.
         this._referSubscribers = {}
         this._candidates = []
-        this._screenShareCandidates = []
         this.publishers = []
         this.private_id = null
         this.memberList = {}
@@ -418,8 +417,74 @@ export default class RTCSession extends EventEmitter {
     }
 
     connectScreenShare (options = {}) {
-        const screenSharePlugin = new ScreenSharePlugin(this)
+        const screenSharePlugin = new ScreenSharePluginOld(this)
         screenSharePlugin.connect(options)
+    }
+
+    /*async connectBlur () {
+        const options = {
+            audio: this.isAudioOn,
+            video: this.isVideoOn
+        }
+
+        this.streamMask = new StreamMaskPlugin({
+            effect: 'backgroundImageEffect',
+            mediaConstraints: options,
+            base64Image: base64Image ? base64Image : null
+        })
+        //screenSharePlugin.connect(options)
+
+        //const { stream } = await this.loadStream()
+
+        console.log('options 1', options)
+
+        const stream = await navigator.mediaDevices.getUserMedia(options)
+
+        console.log('options 2', options)
+
+        //bokehEffect
+        //backgroundImageEffect
+        const canvasStream = await this.streamMask.start(stream)
+
+        this._overrideSenderTracks(canvasStream)
+
+        this._ua.emit('startBlur')
+
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: canvasStream
+        })
+    }*/
+
+    /*stopBlur () {
+        const originalStream = this.streamMask.stop()
+        this._overrideSenderTracks(originalStream)
+
+        this._ua.emit('stopBlur')
+
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: originalStream
+        })
+    }*/
+
+    _overrideSenderTracks (stream) {
+        stream.getTracks().forEach(track => {
+            const senders = this._connection.getSenders()
+            senders.forEach(async (sender) => {
+                if (sender.track.kind !== track.kind) {
+                    return
+                }
+
+                if (track.kind === 'audio' && !this.isAudioOn) {
+                    track.enabled = false
+                }
+                if (track.kind === 'video' && !this.isVideoOn) {
+                    track.enabled = false
+                }
+                await sender.replaceTrack(track)
+            })
+        })
     }
 
     init_incoming (request, initCallback) {
@@ -2606,51 +2671,6 @@ export default class RTCSession extends EventEmitter {
             })
     }
 
-    async _sendInitialScreenShareRequest (mediaConstraints, rtcOfferConstraints, mediaStream) {
-        //this.ackSent = false
-        //this.publisherSubscribeSent = false
-
-        const request_sender = new RequestSender(this._ua, this._screen_share_request, {
-            onRequestTimeout: () => {
-                this.onRequestTimeout()
-            },
-            onTransportError: () => {
-                this.onTransportError()
-            },
-            // Update the request on authentication.
-            onAuthenticated: (request) => {
-                this._screen_share_request = request
-            },
-            onReceiveResponse: (response) => {
-                this._receiveScreenShareInviteResponse(response)
-            }
-        })
-
-        await this.loadScreenShareStream()
-
-        this.addScreenShareTracks(this.screenShareStream.getTracks())
-
-        const options = {
-            audio: false,
-            video: true,
-        }
-        this.screen_share_jsep_offer = await this._screenShareConnection.createOffer(options)
-
-        await this._screenShareConnection.setLocalDescription(this.screen_share_jsep_offer)
-
-        const inviteData = {
-            janus: 'attach',
-            plugin: 'janus.plugin.videoroom',
-            opaque_id: this.screen_share_opaque_id
-        }
-
-        const bodyStringified = JSON.stringify(inviteData)
-
-        this._screen_share_request.body = bodyStringified
-
-        request_sender.send()
-    }
-
     /**
      * Get DTMF RTCRtpSender.
      */
@@ -2668,205 +2688,13 @@ export default class RTCSession extends EventEmitter {
         return sender.dtmf
     }*/
 
-    _createScreenShareRTCConnection () {
-        this._screenShareConnection = new RTCPeerConnection({
-            iceServers: [
-                {
-                    urls: 'stun:turn.voicenter.co',
-                    credential: 'kxsjahnsdjns3eds23esd',
-                    username: 'turn2es21e'
-                }
-            ],
-        })
-
-        let iceCandidateTimeout
-
-        // Send ICE events to Janus.
-        this._screenShareConnection.onicecandidate = (event) => {
-
-            console.log('AAA onicecandidate', event)
-            if (this._screenShareConnection.signalingState !== 'stable' && this._screenShareConnection.signalingState !== 'have-local-offer') {
-                console.log('skipining icecandidate event screensharing ',this._screenShareConnection.signalingState,event)
-                return
-            }
-            console.log('AAA send trickle')
-            /*this.sendTrickle(event.candidate || null)
-                .catch((err) => {
-                    logger.warn(err)
-                })*/
-
-            if (!event.candidate) {
-                console.log('AAA onIceCandidate 2')
-                return
-            }
-
-            this._screenShareCandidates.push(event.candidate)
-
-            clearTimeout(iceCandidateTimeout)
-
-            // Debounce calling configure request with trickles till the last trickle
-            iceCandidateTimeout = setTimeout(() => {
-                console.log('AAA setTimeout')
-                this.lastScreenShareTrickleReceived = true
-
-                if (this.screenShareSubscribeSent && !this.isScreenShareConfigureSent) {
-                    //this.addScreenShareTracks(this.screenShareStream.getTracks())
-
-                    /*this._ua.emit('changeScreenShareStream', {
-                        name: this.display_name + ' (Screen Share)',
-                        stream: this.screenShareStream
-                    })*/
-
-                    this._sendScreenShareConfigureMessage({
-                        audio: true,
-                        video: true,
-                    }).then(() => {
-                        //this.sendInitialState()
-                    })
-                }
-            }, 500)
-        }
+    async requestAudioAndVideoPermissions () {
+        this.stream = await this.loadStream()
     }
 
-    /*async startScreenShare () {
-        //this.screen_share_opaque_id = this.generateOpaqueId()
-
-        //await this.loadScreenShareStream()
-
-        this._screenShareConnection = new RTCPeerConnection({
-            iceServers: [
-                {
-                    urls: 'stun:turn.voicenter.co',
-                    credential: 'kxsjahnsdjns3eds23esd',
-                    username: 'turn2es21e'
-                }
-            ],
-        })
-
-        let iceCandidateTimeout
-
-        // Send ICE events to Janus.
-        this._screenShareConnection.onicecandidate = (event) => {
-
-            console.log('AAA onicecandidate', event)
-            if (this._screenShareConnection.signalingState !== 'stable' && this._screenShareConnection.signalingState !== 'have-local-offer') {
-                console.log('skipining icecandidate event screensharing ',this._screenShareConnection.signalingState,event)
-                return
-            }
-            console.log('AAA send trickle')
-            /!*this.sendTrickle(event.candidate || null)
-                .catch((err) => {
-                    logger.warn(err)
-                })*!/
-
-            if (!event.candidate) {
-                console.log('AAA onIceCandidate 2')
-                return
-            }
-
-            this._screenShareCandidates.push(event.candidate)
-
-            clearTimeout(iceCandidateTimeout)
-
-            // Debounce calling configure request with trickles till the last trickle
-            iceCandidateTimeout = setTimeout(() => {
-                console.log('AAA setTimeout')
-                this.lastScreenShareTrickleReceived = true
-
-                if (this.screenShareSubscribeSent && !this.isScreenShareConfigureSent) {
-                    //this.addScreenShareTracks(this.screenShareStream.getTracks())
-
-                    this._ua.emit('changeScreenShareStream', {
-                        name: this.display_name + ' (Screen Share)',
-                        stream: this.screenShareStream
-                    })
-
-                    this._sendScreenShareConfigureMessage({
-                        audio: true,
-                        video: true,
-                    }).then(() => {
-                        //this.sendInitialState()
-                    })
-                }
-            }, 500)
-        }
-
-        await this.loadScreenShareStream()
-
-        this.addScreenShareTracks(this.screenShareStream.getTracks())
-
-        const options = {
-            audio: false,
-            video: true,
-        }
-        const jsepOffer = await this._screenShareConnection.createOffer(options)
-
-        await this._screenShareConnection.setLocalDescription(jsepOffer)
-
-        this.sendScreenShareJoin(jsepOffer)
-    }*/
-
-    /*sendScreenShareJoin (jsepOffer) {
-        // this.screen_share_client_id = uuidv4()
-
-        const registerBody = {
-            janus: 'message',
-            body: {
-                request: 'join',
-                room: this.room_id,
-                ptype: 'publisher',
-                display: this.display_name + ' (Screen Share)',
-                //clientID: this.screen_share_client_id,
-                opaque_id: this.screen_share_opaque_id,
-            },
-            handle_id: this.handle_id
-        }
-
-        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ]
-
-        this.sendRequest(JsSIP_C.SUBSCRIBE, {
-            extraHeaders: registerExtraHeaders,
-            body: JSON.stringify(registerBody),
-            eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    console.log('AAA join response', response.status_code)
-                    if (response.status_code === 200) {
-                        this.screenShareSubscribeSent = true
-
-                        if (response.body) {
-                            try {
-                                const bodyParsed = JSON.parse(response.body) || {}
-                                if (bodyParsed.plugindata?.data?.publishers){
-                                    this.receivePublishers(bodyParsed)
-                                }
-                            } catch (e) {
-                                console.error(e)
-                            }
-                        }
-
-                        if (this.lastScreenShareTrickleReceived && !this.isScreenShareConfigureSent) {
-                            //this.addScreenShareTracks(this.screenShareStream.getTracks())
-
-                            this._ua.emit('changeScreenShareStream', {
-                                name: this.display_name + ' (Screen Share)',
-                                stream: this.screenShareStream
-                            })
-
-                            this._sendScreenShareConfigureMessage({
-                                audio: true,
-                                video: true,
-                            }).then(() => {})
-                        }
-
-                        //this._ua.emit('conferenceStart')
-                    }
-                },
-            }
-        })
-    }*/
-
-    requestAudioAndVideoPermissions () {
-        return this.loadStream()
+    async setupMediaStream () {
+        await this.requestAudioAndVideoPermissions()
+        await this.processPlugins()
     }
 
     async loadStream () {
@@ -2876,46 +2704,30 @@ export default class RTCSession extends EventEmitter {
             video: this.isVideoOn
         }
 
+        let stream = null
+
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia(options)
+            stream = await navigator.mediaDevices.getUserMedia(options)
 
         } catch (e) {
             try {
                 options.video = false
-                this.stream = await navigator.mediaDevices.getUserMedia(options)
+                stream = await navigator.mediaDevices.getUserMedia(options)
             } catch (ex) {
                 options.audio = false
                 options.video = false
-                this.stream = await navigator.mediaDevices.getUserMedia(options)
+                stream = await navigator.mediaDevices.getUserMedia(options)
             }
         }
+
+        return stream
+
+        //this.originalStream = this.stream.clone()
         // this.trackMicrophoneVolume()
-        return {
+        /*return {
             stream: this.stream,
             options
-        }
-    }
-
-    async loadScreenShareStream () {
-        try {
-            this.screenShareStream = await navigator.mediaDevices.getDisplayMedia()
-            this.screenShareStream.getVideoTracks()[0].onended = () => {
-                // TODO: add onStopSharing method
-                //this.onStopSharing()
-            }
-
-        } catch (e) {
-            //await this.onStopSharing()
-            return
-        }
-        // this.trackMicrophoneVolume()
-        return this.screenShareStream
-    }
-
-    addScreenShareTracks (tracks) {
-        tracks.forEach((track) => {
-            this._screenShareConnection.addTrack(track)
-        })
+        }*/
     }
 
     addTracks (tracks) {
@@ -2988,66 +2800,6 @@ export default class RTCSession extends EventEmitter {
                     await this._connection.setRemoteDescription(parsed.jsep)
                     //await this.processIceCandidates()
                     this._candidates = []
-                },
-            }
-        })
-    }
-
-    async _sendScreenShareConfigureMessage (options) {
-        /*const offerOptions = {
-            offerToReceiveAudio: false,
-            offerToReceiveVideo: false
-        }
-        const jsepOffer = await this._screenShareConnection.createOffer(offerOptions)
-        await this._screenShareConnection.setLocalDescription(jsepOffer)*/
-
-        const candidatesArray = this._screenShareCandidates.map((candidate) => ({
-            janus: 'trickle',
-            candidate,
-            handle_id: this.screen_share_handle_id,
-            session_id: this.session_id
-        }))
-
-        const configureBody = {
-            janus: 'message',
-            body: {
-                request: 'configure',
-                record: true,
-                filename: this.getRecordFileName(),
-                ...options
-            },
-            jsep: this.screen_share_jsep_offer,
-            handle_id: this.screen_share_handle_id,
-            session_id: this.session_id
-        }
-
-        const body = {
-            configure: configureBody,
-            trickles: [ ...candidatesArray ]
-        }
-
-        const extraHeaders = [
-            'Content-Type: application/json',
-            this.getPTypeHeader(P_TYPES.ICE)
-        ]
-
-        this.sendRequest(JsSIP_C.INFO, {
-            extraHeaders,
-            body: JSON.stringify(body),
-            eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    console.log('mmm configure response', response)
-                    this.isScreenShareConfigureSent = true
-                    const messageData = response.data
-                    const messageBody = messageData.split('\r\n')
-                    console.log('mmm configure messageBody', messageBody)
-                    const data = messageBody[messageBody.length - 1]
-                    console.log('mmm configure data', data)
-                    const parsed = JSON.parse(data)
-                    console.log('mmm configure parsed', parsed)
-                    await this._screenShareConnection.setRemoteDescription(parsed.jsep)
-                    //await this.processIceCandidates()
-                    this._screenShareCandidates = []
                 },
             }
         })
@@ -3303,6 +3055,60 @@ export default class RTCSession extends EventEmitter {
         })
     }
 
+    async processPlugins () {
+        const plugins = this._ua.processStreamPlugins
+        let baseStream = await this.loadStream() //this.originalStream.clone()
+
+        for (const plugin of plugins) {
+            baseStream = await plugin.process(baseStream)
+        }
+
+        this.stream.getTracks().forEach((track) => {
+            this.stream.removeTrack(track)
+            track.stop()
+        })
+
+        baseStream.getTracks().forEach((track) => {
+            this.stream.addTrack(track)
+        })
+
+        //this.stream = baseStream
+    }
+
+    async resyncPlugins () {
+        const plugins = this._ua.processStreamPlugins
+
+        for (const plugin of plugins) {
+            if (plugin.running) {
+                plugin._stop()
+            }
+        }
+
+        let baseStream = await this.loadStream()
+
+        for (const plugin of plugins) {
+            if (plugin.running) {
+                baseStream = await plugin.start(baseStream)
+            }
+        }
+
+        this.stream.getTracks().forEach((track) => {
+            this.stream.removeTrack(track)
+            track.stop()
+        })
+
+        baseStream.getTracks().forEach((track) => {
+            this.stream.addTrack(track)
+        })
+
+        this._overrideSenderTracks(this.stream)
+
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: this.stream
+        })
+    }
+
     /**
      * Reception of Response for Initial INVITE
      */
@@ -3349,7 +3155,7 @@ export default class RTCSession extends EventEmitter {
             const parsedBody = JSON.parse(response.body)
             //console.log('parsedBody', parsedBody)
 
-            this.requestAudioAndVideoPermissions().then(() => {
+            this.setupMediaStream().then(() => {
                 this.session_id = parsedBody.session_id
                 this.handle_id = parsedBody.data.id
                 this.client_id = uuidv4()
@@ -3558,83 +3364,6 @@ export default class RTCSession extends EventEmitter {
                 this._failed('remote', response, cause)
             }
         }
-    }
-
-    _receiveScreenShareInviteResponse (response) {
-        console.log('mmm response.body', response)
-
-
-        if (this.screenSharePublisherSubscribeSent || !response.body) {
-            return
-        }
-
-        const parsedBody = JSON.parse(response.body)
-
-        console.log('mmm parsed response.body', response.body)
-
-        this.screen_share_handle_id = parsedBody.data.id
-        //this.client_id = uuidv4()
-
-        const registerBody = {
-            janus: 'message',
-            body: {
-                request: 'join',
-                room: this.room_id,
-                ptype: 'publisher',
-                display: this.display_name + ' (Screen Share)',
-                //clientID: this.client_id,
-                opaque_id: this.screen_share_opaque_id,
-            },
-            handle_id: this.screen_share_handle_id
-        }
-
-        const registerExtraHeaders = [ this.getPTypeHeader(P_TYPES.PUBLISHER) ]
-
-        this.sendRequest(JsSIP_C.SUBSCRIBE, {
-            extraHeaders: registerExtraHeaders,
-            body: JSON.stringify(registerBody),
-            eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    if (response.status_code === 200) {
-                        this.screenShareSubscribeSent = true
-
-                        if (response.body) {
-                            try {
-                                const bodyParsed = JSON.parse(response.body) || {}
-
-                                if (bodyParsed.plugindata?.data?.videoroom === 'joined') {
-                                    this.myFeedList.push(bodyParsed.plugindata.data.id)
-                                }
-
-                                if (bodyParsed.plugindata?.data?.publishers){
-                                    this.receivePublishers(bodyParsed)
-                                }
-                            } catch (e) {
-                                console.error(e)
-                            }
-                        }
-
-                        if (this.lastScreenShareTrickleReceived && !this.isScreenShareConfigureSent) {
-                            //this.addTracks(this.stream.getTracks())
-
-                            /*this._ua.emit('changeMainVideoStream', {
-                                name: this.display_name,
-                                stream: this.stream
-                            })*/
-
-                            this._sendScreenShareConfigureMessage({
-                                audio: true,
-                                video: true,
-                            }).then(() => {})
-                        }
-
-                        //this._ua.emit('conferenceStart')
-                    }
-                },
-            }
-        })
-
-        this.screenSharePublisherSubscribeSent = true
     }
 
     /**

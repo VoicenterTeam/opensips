@@ -4,40 +4,7 @@ import * as SIPMessage from 'jssip/lib/SIPMessage'
 import RequestSender from 'jssip/lib/RequestSender'
 import P_TYPES from '@/enum/p.types'
 import JsSIP_C from 'jssip/lib/Constants'
-
-export class BasePlugin {
-    opensips = null
-    session = null
-    name = null
-
-    constructor (name) {
-        this.name = name
-    }
-
-    setOpensips (opensips) {
-        this.opensips = opensips
-    }
-
-    setSession (session) {
-        this.session = session
-    }
-
-    onMediaCreated (stream) {
-        console.log(stream)
-    }
-
-    onBeforeDestroy () {
-        console.log('onBeforeDestroy')
-    }
-
-    kill () {
-        console.log('kill')
-        this.opensips.kill(this.name)
-        //delete this.opensips.newStreamPlugins[this.name]
-        //this.opensips.getPlugin(this.name)
-    }
-}
-/*
+import { BasePlugin } from '@/lib/janus/BasePlugin'
 
 export class BaseNewStreamPlugin extends BasePlugin {
     constructor (name) {
@@ -52,12 +19,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
     connect (options = {}) {
         this.opaqueId = this.session.generateOpaqueId()
 
-        /!*const mediaConstraints = Utils.cloneObject(options.mediaConstraints, {
+        /*const mediaConstraints = Utils.cloneObject(options.mediaConstraints, {
             audio: true,
             video: true
         })
         const mediaStream = options.mediaStream || null
-        const rtcOfferConstraints = options.rtcOfferConstraints || null*!/
+        const rtcOfferConstraints = options.rtcOfferConstraints || null*/
 
         const extraHeaders = Utils.cloneArray(options.extraHeaders)
 
@@ -114,10 +81,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                 return
             }
             console.log('AAA send trickle')
-            /!*this.sendTrickle(event.candidate || null)
+            /*this.sendTrickle(event.candidate || null)
                 .catch((err) => {
                     logger.warn(err)
-                })*!/
+                })*/
 
             if (!event.candidate) {
                 console.log('AAA onIceCandidate 2')
@@ -136,10 +103,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                 if (this._subscribeSent && !this._configureSent) {
                     //this.addTracks(this.stream.getTracks())
 
-                    /!*this.session._ua.emit('changeScreenShareStream', {
+                    /*this.session._ua.emit('changeScreenShareStream', {
                         name: this.display_name + ' (Screen Share)',
                         stream: this.stream
-                    })*!/
+                    })*/
 
                     this._sendConfigureMessage({
                         audio: true,
@@ -253,10 +220,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
                         if (this._lastTrickleReceived && !this._configureSent) {
                             //this.addTracks(this.stream.getTracks())
 
-                            /!*this.session._ua.emit('changeMainVideoStream', {
+                            /*this.session._ua.emit('changeMainVideoStream', {
                                 name: this.display_name,
                                 stream: this.stream
-                            })*!/
+                            })*/
 
                             this._sendConfigureMessage({
                                 audio: true,
@@ -274,12 +241,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async _sendConfigureMessage (options) {
-        /!*const offerOptions = {
+        /*const offerOptions = {
             offerToReceiveAudio: false,
             offerToReceiveVideo: false
         }
         const jsepOffer = await this._connection.createOffer(offerOptions)
-        await this._connection.setLocalDescription(jsepOffer)*!/
+        await this._connection.setLocalDescription(jsepOffer)*/
 
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
@@ -383,53 +350,5 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
     async generateStream () {
         return new MediaStream()
-    }
-}
-
-export class ScreenSharePlugin extends BaseNewStreamPlugin {
-    constructor () {
-        super('ScreenSharePlugin')
-    }
-
-    async generateStream () {
-        try {
-            this.stream = await navigator.mediaDevices.getDisplayMedia()
-            this.stream.getVideoTracks()[0].onended = () => {
-                this.stopMedia()
-            }
-
-            this.session._ua.emit('startScreenShare', {
-                stream: this.stream
-            })
-        } catch (error) {
-            await this.stopMedia()
-            console.error(error)
-        }
-        // this.trackMicrophoneVolume()
-        return this.stream
-    }
-
-    async kill () {
-        await this.stop()
-
-        this.session._ua.emit('stopScreenShare')
-    }
-}
-*/
-
-export class BaseProcessStreamPlugin extends BasePlugin {
-    stream = null
-
-    process (stream) {
-        this.originalStream = stream.clone()
-
-        this.start(stream)
-    }
-
-    start (stream) {
-        return stream
-    }
-    generateStream () {
-        return true
     }
 }
