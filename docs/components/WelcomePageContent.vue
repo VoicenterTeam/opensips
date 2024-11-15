@@ -3,7 +3,7 @@
         <div class="w-full max-w-7xl px-4 sm:px-6 lg:px-8 relative">
             <div class="py-5 lg:pt-10 pb-5 text-center">
                 <h1 class="text-5xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-7xl">
-                    <span>Voicenter <span class="text-primary">Opensips JS</span>
+                    <span><span class="text-primary">Opensips JS</span>
                     </span>
                 </h1>
                 <div class="py-5 tracking-tight mt-6 text-lg/8 lg:px-32 text-gray-900 dark:text-white space-y-3">
@@ -50,11 +50,13 @@ const navigationLinks = [
         icon: 'i-heroicons:book-open',
         link: '/docs'
     },
-    {
-        label: 'API',
-        icon: 'i-heroicons:server-stack',
-        link: '/api'
-    },
+
+    // Uncomment when TS is fixed so we have the API docs
+    // {
+    //     label: 'API',
+    //     icon: 'i-heroicons:server-stack',
+    //     link: '/api'
+    // },
     {
         label: 'Example',
         icon: 'i-heroicons:window',
