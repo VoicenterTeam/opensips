@@ -4,9 +4,10 @@ export class BaseProcessStreamPlugin extends BasePlugin {
     stream = null
     running = false
 
-    constructor (name, options = {}) {
+    constructor (name, type, options = {}) {
         super(name)
         this.immediate = options.immediate || false
+        this.type = type
     }
 
     async process (stream) {
@@ -21,7 +22,7 @@ export class BaseProcessStreamPlugin extends BasePlugin {
 
     async connect () {
         this.running = true
-        await this.session.resyncPlugins()
+        await this.session.resyncPlugins(this.type)
     }
 
     _stop () {

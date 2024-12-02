@@ -46,7 +46,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
     private visibilityState: VisibilityStateType | null = null
 
     constructor (options: StreamMaskOptions, pluginConfig?: PluginConfig) {
-        super('StreamMaskPlugin', pluginConfig)
+        super('StreamMaskPlugin', 'video', pluginConfig)
 
         const { visualizationConfig, effect, base64Image } = options
 

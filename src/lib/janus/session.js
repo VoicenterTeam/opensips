@@ -468,9 +468,9 @@ export default class RTCSession extends EventEmitter {
         })
     }*/
 
-    _overrideSenderTracks (stream) {
+    _overrideSenderTracks (stream, connection) {
         stream.getTracks().forEach(track => {
-            const senders = this._connection.getSenders()
+            const senders = connection.getSenders()
             senders.forEach(async (sender) => {
                 if (sender.track.kind !== track.kind) {
                     return
@@ -3075,8 +3075,8 @@ export default class RTCSession extends EventEmitter {
         //this.stream = baseStream
     }
 
-    async resyncPlugins () {
-        const plugins = this._ua.processStreamPlugins
+    async resyncPlugins (type) {
+        const plugins = this._ua.processStreamPlugins.filter((plugin) => plugin.type === type)
 
         for (const plugin of plugins) {
             if (plugin.running) {
@@ -3084,29 +3084,89 @@ export default class RTCSession extends EventEmitter {
             }
         }
 
-        let baseStream = await this.loadStream()
+        if (type === 'video') {
+            let baseStream = await this.loadStream()
+
+            for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }
+
+            this.stream.getTracks().forEach((track) => {
+                this.stream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                this.stream.addTrack(track)
+            })
+
+            this._overrideSenderTracks(this.stream, this._connection)
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: this.stream
+            })
+        } else {
+            const typePlugin = this._ua.newStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const pluginStream = typePlugin.getStream()
+
+            let baseStream = pluginStream.clone()
+
+            for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }
+
+            pluginStream.getTracks().forEach((track) => {
+                pluginStream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                pluginStream.addTrack(track.clone())
+
+                baseStream.removeTrack(track)
+                track.stop()
+            })
+
+            const pluginConnection = typePlugin.getConnection()
+            this._overrideSenderTracks(pluginStream, pluginConnection)
+
+            this._ua.emit('changePluginStream', {
+                type,
+                stream: pluginStream
+            })
+        }
+
+        /*else if (type === 'screen') {
+            const screenSharePlugin = this._ua.newStreamPlugins
+                .filter((plugin) => plugin.name === 'ScreenSharePlugin')
+
+            if (!screenSharePlugin) {
+                throw new Error('ScreenSharePlugin is not found')
+            }
+
+            /!*for (const plugin of plugins) {
+                if (plugin.running) {
+                    //baseStream = await plugin.start(baseStream)
+                }
+            }*!/
+        }*/
+    }
+
+    stopProcessPlugins (type) {
+        const plugins = this._ua.processStreamPlugins.filter((plugin) => plugin.type === type)
 
         for (const plugin of plugins) {
             if (plugin.running) {
-                baseStream = await plugin.start(baseStream)
+                plugin._stop()
             }
         }
-
-        this.stream.getTracks().forEach((track) => {
-            this.stream.removeTrack(track)
-            track.stop()
-        })
-
-        baseStream.getTracks().forEach((track) => {
-            this.stream.addTrack(track)
-        })
-
-        this._overrideSenderTracks(this.stream)
-
-        this._ua.emit('changeMainVideoStream', {
-            name: this.display_name,
-            stream: this.stream
-        })
     }
 
     /**

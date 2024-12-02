@@ -7,13 +7,14 @@ import JsSIP_C from 'jssip/lib/Constants'
 import { BasePlugin } from '@/lib/janus/BasePlugin'
 
 export class BaseNewStreamPlugin extends BasePlugin {
-    constructor (name) {
+    constructor (name, type) {
         super(name)
 
         this._candidates = []
         this._subscribeSent = false
         this._configureSent = false
         this._lastTrickleReceived = false
+        this.type = type
     }
 
     connect (options = {}) {
@@ -57,6 +58,14 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
         //this._sendInitialRequest(mediaConstraints, rtcOfferConstraints, mediaStream)
         this._sendInitialRequest()
+    }
+
+    getStream () {
+        return this.stream
+    }
+
+    getConnection () {
+        return this._connection
     }
 
     _createRTCConnection () {
@@ -326,6 +335,8 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async stop () {
+        await this.session.stopProcessPlugins(this.type)
+
         const senders = this._connection.getSenders()
 
         // Iterate through the senders and stop the tracks
@@ -345,10 +356,15 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
         this._sendDetach()
 
-        this.session._ua.emit('stopScreenShare')
+        //this.session._ua.emit('stopScreenShare')
+
+        /*if (this._connection) {
+            this._connection.close()
+            this._connection = null
+        }*/
     }
 
     async generateStream () {
-        return new MediaStream()
+        this.stream = new MediaStream()
     }
 }
