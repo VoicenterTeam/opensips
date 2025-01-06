@@ -22,6 +22,7 @@ let addCallToCurrentRoom = false
 const loginToAppFormEl = document.getElementById('loginToAppForm')
 const loginPageEl = document.getElementById('loginPage')
 const webRTCPageEl = document.getElementById('webRTCPage')
+const logoutButtonEl = document.getElementById('logoutButton')
 
 const makeCallFormEl = document.getElementById('makeCallForm')
 const videoCallFormEl = document.getElementById('videoCallForm')
@@ -1094,4 +1095,14 @@ roomSelectEl?.addEventListener(
         const roomId = isNaN(parsedValue) ? undefined: parsedValue
         await openSIPSJS.audio.setActiveRoom(roomId)
     })
+
+logoutButtonEl?.addEventListener(
+    'click',
+    (event) => {
+        event.preventDefault()
+        openSIPSJS.unregister()
+
+        window.location.reload()
+    }
+)
 
