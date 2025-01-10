@@ -3080,7 +3080,7 @@ export default class RTCSession extends EventEmitter {
 
         for (const plugin of plugins) {
             if (plugin.running) {
-                plugin._stop()
+                plugin.terminate()
             }
         }
 
@@ -3109,7 +3109,7 @@ export default class RTCSession extends EventEmitter {
                 stream: this.stream
             })
         } else {
-            const typePlugin = this._ua.newStreamPlugins
+            const typePlugin = this._ua.newStreamPlugins //newStreamPlugins
                 .find((plugin) => plugin.type === type)
 
             const pluginStream = typePlugin.getStream()
@@ -3141,6 +3141,71 @@ export default class RTCSession extends EventEmitter {
                 type,
                 stream: pluginStream
             })
+            /*const typePlugin = this._ua.processStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const baseStream = await typePlugin.start()*/
+
+            /*const typePlugin = this._ua.newStreamPlugins //newStreamPlugins
+                .find((plugin) => plugin.name === 'ScreenSharePlugin')
+
+            console.log('RRR screen share plugin', typePlugin)
+
+            const pluginStream = typePlugin.getStream()
+
+            console.log('this._ua.processStreamPlugins', this._ua.processStreamPlugins)
+            const typePlugin2 = this._ua.processStreamPlugins //newStreamPlugins
+                .find((plugin) => plugin.name === 'ScreenShareWhiteboardPlugin')
+
+            const baseStream = await typePlugin2.start()
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: baseStream
+            })*/
+
+            /*console.log('RRR screen share plugin stream', pluginStream)
+
+            //let baseStream = pluginStream.clone()
+
+            const sshwPlugin = this._ua.processStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const baseStream = await sshwPlugin.start()
+
+            console.log('RRR sshw stream', baseStream)
+
+            /!*for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }*!/
+
+            pluginStream.getTracks().forEach((track) => {
+                pluginStream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                pluginStream.addTrack(track.clone())
+
+                baseStream.removeTrack(track)
+                track.stop()
+            })
+
+            const pluginConnection = typePlugin.getConnection()
+            console.log('RRR _overrideSenderTracks', pluginStream.getTracks())
+            this._overrideSenderTracks(pluginStream, pluginConnection)
+
+            /!*this._ua.emit('changePluginStream', {
+                type,
+                stream: pluginStream
+            })*!/
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: pluginStream
+            })*/
         }
 
         /*else if (type === 'screen') {
@@ -3164,7 +3229,7 @@ export default class RTCSession extends EventEmitter {
 
         for (const plugin of plugins) {
             if (plugin.running) {
-                plugin._stop()
+                plugin.terminate()
             }
         }
     }

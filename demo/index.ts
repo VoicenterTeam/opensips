@@ -11,8 +11,9 @@ import { ChangeVolumeEventType } from '../src/types/listeners'
 import { MODULES } from '../src/enum/modules'
 import { CallTime } from '../src/types/timer'
 import { ScreenSharePlugin } from '../src/lib/janus/ScreenSharePlugin'
+import { ScreenShareWhiteBoardPlugin } from '../src/lib/janus/ScreenShareWhiteBoardPlugin'
 //import { StreamMaskPlugin } from '../src/lib/janus/StreamMaskPlugin'
-import { StreamMaskPlugin } from '../src/lib/janus/StreamMaskPluginNew'
+import { StreamMaskPlugin } from '../src/lib/janus/StreamMaskPlugin'
 import { WhiteBoardPlugin } from '../src/lib/janus/WhiteBoardPlugin'
 //import UA from 'jssip/lib/UA'
 //import JsSIP from 'jssip/lib/JsSIP'
@@ -66,6 +67,8 @@ const audioChangeButtonEl = document.getElementById('audioChangeButton')
 const videoChangeButtonEl = document.getElementById('videoChangeButton')
 
 const screenShareButtonEl = document.getElementById('screenShareButton')
+
+const screenShareWhiteboardButtonEl = document.getElementById('screenShareWhiteboardButton')
 
 const blurButtonEl = document.getElementById('blurButton')
 
@@ -534,7 +537,8 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
     try {
         const configuration: IOpenSIPSConfiguration = {
             session_timers: false,
-            uri: `sip:${username}@${domain}`
+            uri: `sip:${username}@${domain}`,
+            overrideUserAgent: (userAgent) => userAgent + ' Vue 3.0'
         }
 
         if (password) {
@@ -573,6 +577,8 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
         const screenSharePlugin = new ScreenSharePlugin()
 
+        const screenShareWhiteBoardPlugin = new ScreenShareWhiteBoardPlugin(screenSharePlugin)
+
         const streamMaskPlugin = new StreamMaskPlugin({
             //effect: 'backgroundImageEffect',
             effect: 'bokehEffect',
@@ -588,6 +594,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         openSIPSJS.use(screenSharePlugin)
         openSIPSJS.use(streamMaskPlugin)
         openSIPSJS.use(whiteBoardPlugin)
+        openSIPSJS.use(screenShareWhiteBoardPlugin)
 
         /* openSIPSJS Listeners */
         openSIPSJS
@@ -751,17 +758,19 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
             .on('changeMainVideoStream', ({ name, stream }) => {
                 const videoContainer = document.getElementById('mainVideoElementContainer')
 
-                //if (!stream) {
                 const removeVideoElement = () => {
                     const mainVideoElement = videoContainer.querySelector('video')
+                    const mainVideoNameElement = videoContainer.querySelector('#main-video-name')
                     if (mainVideoElement) {
                         mainVideoElement.remove()
-                        return
+                    }
+
+                    if (mainVideoNameElement) {
+                        mainVideoNameElement.remove()
                     }
                 }
 
                 removeVideoElement()
-                //}
 
                 if (!stream) {
                     removeVideoElement()
@@ -769,25 +778,65 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 }
 
                 const nameElement = document.createElement('div')
+                nameElement.setAttribute('id', 'main-video-name')
                 nameElement.innerText = name
 
                 const videoElement = document.createElement('video')
                 videoElement.setAttribute('id', 'main-video-id')
                 videoElement.setAttribute('autoplay', '')
                 videoElement.setAttribute('controls', '')
+                videoElement.classList.add('main-video')
                 videoElement.style.height = '95%'
                 videoElement.srcObject = stream
 
                 videoContainer.appendChild(videoElement)
                 videoContainer.appendChild(nameElement)
             })
-            .on('startScreenShare', (stream ) => {
+            .on('startScreenShare', ({ stream }) => {
                 console.log('startScreenShare', stream)
                 screenShareButtonEl.innerText = 'Stop Screen Share'
+                screenShareWhiteboardButtonEl.style.display = 'block'
+
+                const videoContainer = document.getElementById('mainVideoElementContainer')
+
+                const removeVideoElement = () => {
+                    const mainVideoElement = videoContainer.querySelector('video')
+                    const mainVideoNameElement = videoContainer.querySelector('#main-video-name')
+                    if (mainVideoElement) {
+                        mainVideoElement.remove()
+                    }
+
+                    if (mainVideoNameElement) {
+                        mainVideoNameElement.remove()
+                    }
+                }
+
+                removeVideoElement()
+
+                if (!stream) {
+                    removeVideoElement()
+                    return
+                }
+
+                const nameElement = document.createElement('div')
+                nameElement.setAttribute('id', 'main-video-name')
+                nameElement.innerText = 'Screen Share'
+
+                const videoElement = document.createElement('video')
+                videoElement.setAttribute('id', 'main-video-id')
+                videoElement.setAttribute('autoplay', '')
+                videoElement.setAttribute('controls', '')
+                videoElement.classList.add('main-video')
+                videoElement.style.height = '95%'
+                videoElement.srcObject = stream
+
+                videoContainer.appendChild(videoElement)
+                videoContainer.appendChild(nameElement)
             })
             .on('stopScreenShare', () => {
                 console.log('stopScreenShare')
                 screenShareButtonEl.innerText = 'Start Screen Share'
+                screenShareWhiteboardButtonEl.style.display = 'none'
             })
             /*.on('startBlur', () => {
                 console.log('startBlur')
@@ -951,21 +1000,31 @@ screenShareButtonEl?.addEventListener('click', (event) => {
 
     //openSIPSJS.video.startScreenShare()
     if (screenShareButtonEl.innerText === 'Start Screen Share') {
+        openSIPSJS.getPlugin('ScreenShare').connect({})
+    } else {
+        openSIPSJS.getPlugin('ScreenShare').kill()
+    }
+})
+
+/*screenShareWhiteboardButtonEl?.addEventListener('click', (event) => {
+    event.preventDefault()
+
+    if (screenShareButtonEl.innerText === 'Start Screen Share') {
         openSIPSJS.getPlugin('ScreenSharePlugin').connect({})
     } else {
         openSIPSJS.getPlugin('ScreenSharePlugin').kill()
     }
-})
+})*/
 
 blurButtonEl?.addEventListener('click', (event) => {
     event.preventDefault()
 
     if (blurButtonEl.innerText === 'Start Blur') {
         //openSIPSJS.video.startBlur()
-        openSIPSJS.getPlugin('StreamMaskPlugin').connect()
+        openSIPSJS.getPlugin('StreamMask').connect()
         blurButtonEl.innerText = 'Stop Blur'
     } else {
-        openSIPSJS.getPlugin('StreamMaskPlugin').kill()
+        openSIPSJS.getPlugin('StreamMask').kill()
         blurButtonEl.innerText = 'Start Blur'
     }
 })
@@ -990,7 +1049,7 @@ whiteboardButtonEl?.addEventListener('click', (event) => {
         presentationVideoContainer.appendChild(presentationCanvasWrapper)
         videoContainer.appendChild(presentationVideoContainer)
 
-        openSIPSJS.getPlugin('WhiteBoardPlugin').connect()
+        openSIPSJS.getPlugin('WhiteBoard').connect()
         whiteboardButtonEl.innerText = 'Stop Whiteboard'
     } else {
         const presentationVideoContainer = videoContainer.querySelector('#presentation-video-container')
@@ -1001,8 +1060,64 @@ whiteboardButtonEl?.addEventListener('click', (event) => {
 
         mainVideoElement.style.display = 'block'
 
-        openSIPSJS.getPlugin('WhiteBoardPlugin').kill()
+        openSIPSJS.getPlugin('WhiteBoard').kill()
         whiteboardButtonEl.innerText = 'Start Whiteboard'
+    }
+})
+
+screenShareWhiteboardButtonEl?.addEventListener('click', (event) => {
+    event.preventDefault()
+
+    const videoContainer = document.getElementById('mainVideoElementContainer')
+
+    const mainVideoElement = videoContainer.querySelector('#main-video-id')
+
+    if (!mainVideoElement) {
+        console.error('mainVideoElement is missing')
+        return
+    }
+
+    if (screenShareWhiteboardButtonEl.innerText === 'Start Screen Share Whiteboard') {
+        mainVideoElement.style.display = 'none'
+
+        const screenShareVideoContainer = document.createElement('div')
+        screenShareVideoContainer.setAttribute('id', 'screen-share-video-container')
+        screenShareVideoContainer.classList.add('main-video')
+        screenShareVideoContainer.style.display = 'flex'
+        screenShareVideoContainer.style.justifyContent = 'center'
+        screenShareVideoContainer.style.position = 'relative'
+
+        const compositeCanvasWrapper = document.createElement('div')
+        compositeCanvasWrapper.setAttribute('id', 'composite-canvas-container')
+        compositeCanvasWrapper.style.position = 'relative'
+
+        const compositeCanvasElement = document.createElement('canvas')
+        compositeCanvasElement.setAttribute('id', 'composite-canvas')
+
+        const containerElement = document.createElement('div')
+        containerElement.setAttribute('id', 'container')
+        containerElement.style.display = 'flex'
+        containerElement.style.alignItems = 'center'
+
+        compositeCanvasWrapper.appendChild(compositeCanvasElement)
+        screenShareVideoContainer.appendChild(compositeCanvasWrapper)
+        screenShareVideoContainer.appendChild(containerElement)
+
+        videoContainer.appendChild(screenShareVideoContainer)
+
+        openSIPSJS.getPlugin('ScreenShareWhiteboard').connect()
+        screenShareWhiteboardButtonEl.innerText = 'Stop Screen Share Whiteboard'
+    } else {
+        const screenShareVideoContainer = videoContainer.querySelector('#screen-share-video-container')
+
+        if (screenShareVideoContainer) {
+            screenShareVideoContainer.remove()
+        }
+
+        mainVideoElement.style.display = 'block'
+
+        openSIPSJS.getPlugin('ScreenShareWhiteboard').kill()
+        screenShareWhiteboardButtonEl.innerText = 'Start Screen Share Whiteboard'
     }
 })
 

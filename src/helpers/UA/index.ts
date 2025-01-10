@@ -155,6 +155,23 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
             this._configuration.instance_id = Utils.newUUID()
         }
 
+        /*if (this._configuration.user_agent) {
+            this._configuration.user_agent = '0'
+        }*/
+
+        let userAgent
+        if (typeof window !== 'undefined' && typeof window.document !== 'undefined') {
+            userAgent = window?.navigator.userAgent
+        } else if (typeof self !== 'undefined' && self.navigator) {
+            userAgent = self.navigator.userAgent
+        }
+
+        userAgent += ' ' + JsSIP_C.USER_AGENT
+
+        this._configuration.user_agent = configuration.overrideUserAgent &&
+            typeof configuration.overrideUserAgent === 'function' ?
+            configuration.overrideUserAgent(userAgent) : userAgent
+
         // Jssip_id instance parameter. Static random tag of length 5.
         this._configuration.jssip_id = Utils.createRandomToken(5)
 

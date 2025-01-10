@@ -1,13 +1,27 @@
 import { BasePlugin } from '@/lib/janus/BasePlugin'
 
-export class BaseProcessStreamPlugin extends BasePlugin {
-    stream = null
-    running = false
+interface BaseProcessStreamPluginOptions {
+    immediate?: boolean
+}
 
-    constructor (name, type, options = {}) {
+export class BaseProcessStreamPlugin extends BasePlugin {
+    public stream = null
+    public running = false
+    public immediate = false
+    public type = 'video'
+
+    constructor (name, type, options: BaseProcessStreamPluginOptions = {}) {
         super(name)
         this.immediate = options.immediate || false
         this.type = type
+    }
+
+    start (stream) {
+        return stream
+    }
+
+    stop () {
+        console.log('stop')
     }
 
     async process (stream) {
@@ -25,13 +39,13 @@ export class BaseProcessStreamPlugin extends BasePlugin {
         await this.session.resyncPlugins(this.type)
     }
 
-    _stop () {
+    terminate () {
         this.stop()
     }
 
     async kill () {
         this.stop()
         this.running = false
-        await this.session.resyncPlugins()
+        await this.session.resyncPlugins(this.type)
     }
 }

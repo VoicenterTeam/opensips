@@ -1,18 +1,10 @@
 // @ts-nocheck
-
-/*import Konva from 'konva'
-import { randomString, loadImage } from './utils/util'
-import { logger } from '../util/logger'
-import { BasePlugin } from './BasePlugin'
-//import { v4 as uuidv4 } from 'uuid'
-import { StunServer } from '../types'
-import { ConferencingBasePlugin } from './ConferencingBasePlugin'*/
-import { CONFERENCING_MODE, ConferencingModeType } from './enum/conferencing.enum'
+import { ConferencingModeType } from './enum/conferencing.enum'
 import { KonvaDrawer } from './utils/KonvaDrawer'
 import { KonvaDrawerOptions } from './types/konvaDrawer'
 import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
-export class WhiteBoardPlugin extends BaseProcessStreamPlugin{
+export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
     private static video: HTMLVideoElement | null = null
     private static wrapperEl: HTMLDivElement | null = null
     private static screenShareKonvaDrawer: KonvaDrawer | null = null
@@ -20,15 +12,18 @@ export class WhiteBoardPlugin extends BaseProcessStreamPlugin{
     private imageSrc: string | null = null
     private konvaDrawer: KonvaDrawer | null = null
     public mode: ConferencingModeType = undefined
+    private screenSharePlugin: unknown = null
     //rtcConnection: any = null
-    name = 'janus.plugin.videoroom'
+    //name = 'janus.plugin.videoroom'
     //stunServers: StunServer[]
 
     //VideoRoomPlugin = null
     //ScreenSharePlugin = null
 
-    constructor () {
-        super('ScreenShareWhiteboardPlugin', 'screen')
+    constructor (screenSharePlugin) {
+        super('ScreenShareWhiteboard', 'screen')
+
+        this.screenSharePlugin = screenSharePlugin
     }
 
     private createVideoElement () {
@@ -101,8 +96,10 @@ export class WhiteBoardPlugin extends BaseProcessStreamPlugin{
     async start (stream) {
         this.createVideoElement()
 
+        //const stream = this.screenSharePlugin.getStream()
         this.initialStream = stream
         this.video.srcObject = stream
+
         const wrapperEl = document.getElementById('screen-share-video-container')
         const compositeCanvasContainerEl = document.getElementById('composite-canvas-container')
 
@@ -173,7 +170,7 @@ export class WhiteBoardPlugin extends BaseProcessStreamPlugin{
     /**
    * Stops stream processing
    */
-    stopScreenShareWhiteboard () {
+    stop () {
         const stream = this.initialStream
         this.initialStream = null
         this.video = null

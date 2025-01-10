@@ -1,6 +1,5 @@
 import '@tensorflow/tfjs-backend-webgl'
 //import '@tensorflow/tfjs-backend-webgpu'
-//import * as tf from '@tensorflow/tfjs-core'
 import * as mpSelfieSegmentation from '@mediapipe/selfie_segmentation'
 import * as tfjsWasm from '@tensorflow/tfjs-backend-wasm'
 import type { BodySegmenter } from '@tensorflow-models/body-segmentation'
@@ -15,25 +14,24 @@ import {
     VISUALIZATION_CONFIG,
     MASK_EFFECT_TYPE_CONFIG,
     MaskEffectTypeConfigType,
-    StartMaskEffectOptions,
     VisualizationConfigType
 } from './enum/tfjs.config.enum'
 import { TimeoutType, VisibilityStateType } from './types/streamMask'
-
-// TODO: Fix types
-type MediaStreamConstraints = any
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
 interface StreamMaskOptions {
     effect: MaskEffectTypeConfigType
     base64Image?: string
     visualizationConfig?: VisualizationConfigType
-    //options?: StartMaskEffectOptions
+}
+
+interface PluginConfig {
+    immediate: boolean
 }
 
 tfjsWasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${tfjsWasm.version_wasm}/dist/`)
 
-export class StreamMaskPlugin {
-    private originalStream: MediaStream = null
+export class StreamMaskPlugin extends BaseProcessStreamPlugin {
     private visualizationConfig: VisualizationConfigType = {}
     private maskEffectType: MaskEffectTypeConfigType | null = null
     private base64ImageMask: string | null = null
@@ -45,7 +43,9 @@ export class StreamMaskPlugin {
     private ctx
     private visibilityState: VisibilityStateType | null = null
 
-    constructor (options: StreamMaskOptions) {
+    constructor (options: StreamMaskOptions, pluginConfig?: PluginConfig) {
+        super('StreamMask', 'video', pluginConfig)
+
         const { visualizationConfig, effect, base64Image } = options
 
         this.visualizationConfig = mergeConfig(VISUALIZATION_CONFIG, visualizationConfig)
@@ -71,10 +71,18 @@ export class StreamMaskPlugin {
    * @return {MediaStream} processed stream with mask effect
    */
     async start (stream) {
-        this.originalStream = stream.clone()
-
         this.canvas = document.createElement('canvas')
         this.ctx = this.canvas.getContext('2d')
+
+        /*stream.getTracks().forEach(track => {
+            track.stop()
+            stream.removeTrack(track)
+        })
+
+        return await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true
+        })*/
 
         this.camera = await Camera.setupCamera(stream)
 
@@ -154,14 +162,12 @@ export class StreamMaskPlugin {
 
         this.rafId = null
         this.timeoutId = null
-        this.maskEffectType = null
-        this.base64ImageMask = null
+        //this.maskEffectType = null
+        //this.base64ImageMask = null
         this.segmenter = null
         this.camera = null
         this.canvas = null
         this.ctx = null
-
-        return this.originalStream
     }
 
     setupVisualizationConfig (config: VisualizationConfigType) {
@@ -258,6 +264,7 @@ export class StreamMaskPlugin {
         if (segmentation && segmentation.length > 0) {
             switch (this.maskEffectType) {
                 case MASK_EFFECT_TYPE_CONFIG.bokehEffect:
+                    console.log('applyBokehEffect')
                     await this.applyBokehEffect(segmentation)
                     break
                 case MASK_EFFECT_TYPE_CONFIG.backgroundImageEffect:

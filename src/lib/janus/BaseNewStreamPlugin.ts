@@ -6,7 +6,34 @@ import P_TYPES from '@/enum/p.types'
 import JsSIP_C from 'jssip/lib/Constants'
 import { BasePlugin } from '@/lib/janus/BasePlugin'
 
+interface ConnectOptions {
+    extraHeaders?: Array<string>
+    fromUserName?: string
+    fromDisplayName?: string
+    rtcConstraints?: object
+    pcConfig?: object
+}
+
+interface RequestParameters {
+    from_tag: string
+    from_uri?: string
+    from_display_name?: string
+}
+
 export class BaseNewStreamPlugin extends BasePlugin {
+    private _candidates: Array<RTCIceCandidate>
+    private _subscribeSent: boolean
+    private _configureSent: boolean
+    private _lastTrickleReceived: boolean
+    private _publisherSubscribeSent: boolean
+    private opaqueId: string
+    private handleId: number
+    private readonly type: string
+    protected _connection: RTCPeerConnection
+    protected jsep_offer: RTCSessionDescription | void
+    protected _request: unknown
+    public stream: MediaStream
+
     constructor (name, type) {
         super(name)
 
@@ -17,19 +44,14 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this.type = type
     }
 
-    connect (options = {}) {
+    connect (options: ConnectOptions = {}) {
         this.opaqueId = this.session.generateOpaqueId()
-
-        /*const mediaConstraints = Utils.cloneObject(options.mediaConstraints, {
-            audio: true,
-            video: true
-        })
-        const mediaStream = options.mediaStream || null
-        const rtcOfferConstraints = options.rtcOfferConstraints || null*/
 
         const extraHeaders = Utils.cloneArray(options.extraHeaders)
 
-        const requestParams = { from_tag: this.session._from_tag }
+        const requestParams: RequestParameters = {
+            from_tag: this.session._from_tag
+        }
 
         if (options.fromUserName) {
             requestParams.from_uri = new URI('sip', options.fromUserName, this.session._ua.configuration.uri.host)
@@ -51,12 +73,8 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this._request = new SIPMessage.InitialOutgoingInviteRequest(
             this.session.target, this.session._ua, requestParams, extraHeaders)
 
+        this._createRTCConnection()
 
-        const pcConfig = Utils.cloneObject(options.pcConfig, { iceServers: [] })
-        const rtcConstraints = options.rtcConstraints || null
-        this._createRTCConnection(pcConfig, rtcConstraints)
-
-        //this._sendInitialRequest(mediaConstraints, rtcOfferConstraints, mediaStream)
         this._sendInitialRequest()
     }
 
@@ -83,20 +101,11 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
         // Send ICE events to Janus.
         this._connection.onicecandidate = (event) => {
-
-            console.log('AAA onicecandidate', event)
             if (this._connection.signalingState !== 'stable' && this._connection.signalingState !== 'have-local-offer') {
-                console.log('skipining icecandidate event screensharing ',this._connection.signalingState,event)
                 return
             }
-            console.log('AAA send trickle')
-            /*this.sendTrickle(event.candidate || null)
-                .catch((err) => {
-                    logger.warn(err)
-                })*/
 
             if (!event.candidate) {
-                console.log('AAA onIceCandidate 2')
                 return
             }
 
@@ -106,17 +115,9 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
             // Debounce calling configure request with trickles till the last trickle
             iceCandidateTimeout = setTimeout(() => {
-                console.log('AAA setTimeout')
                 this._lastTrickleReceived = true
 
                 if (this._subscribeSent && !this._configureSent) {
-                    //this.addTracks(this.stream.getTracks())
-
-                    /*this.session._ua.emit('changeScreenShareStream', {
-                        name: this.display_name + ' (Screen Share)',
-                        stream: this.stream
-                    })*/
-
                     this._sendConfigureMessage({
                         audio: true,
                         video: true,
@@ -133,9 +134,6 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async _sendInitialRequest () {
-        //this.ackSent = false
-        this.publisherSubscribeSent = false
-
         const request_sender = new RequestSender(this.session._ua, this._request, {
             onRequestTimeout: () => {
                 this.session.onRequestTimeout()
@@ -157,12 +155,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this.addTracks(this.stream.getTracks())
 
         const options = {
-            audio: false,
-            video: true,
+            audio: false, // offerToReceiveAudio
+            video: true, // offerToReceiveVideo
         }
         this.jsep_offer = await this._connection.createOffer(options)
 
-        await this._connection.setLocalDescription(this.jsep_offer)
+        await this._connection.setLocalDescription(this.jsep_offer as unknown as RTCSessionDescription)
 
         const inviteData = {
             janus: 'attach',
@@ -185,7 +183,6 @@ export class BaseNewStreamPlugin extends BasePlugin {
         const parsedBody = JSON.parse(response.body)
 
         this.handleId = parsedBody.data.id
-        //this.client_id = uuidv4()
 
         const registerBody = {
             janus: 'message',
@@ -227,20 +224,11 @@ export class BaseNewStreamPlugin extends BasePlugin {
                         }
 
                         if (this._lastTrickleReceived && !this._configureSent) {
-                            //this.addTracks(this.stream.getTracks())
-
-                            /*this.session._ua.emit('changeMainVideoStream', {
-                                name: this.display_name,
-                                stream: this.stream
-                            })*/
-
                             this._sendConfigureMessage({
                                 audio: true,
                                 video: true,
                             })
                         }
-
-                        //this.session._ua.emit('conferenceStart')
                     }
                 },
             }
@@ -250,13 +238,6 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async _sendConfigureMessage (options) {
-        /*const offerOptions = {
-            offerToReceiveAudio: false,
-            offerToReceiveVideo: false
-        }
-        const jsepOffer = await this._connection.createOffer(offerOptions)
-        await this._connection.setLocalDescription(jsepOffer)*/
-
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
             candidate,
@@ -292,17 +273,12 @@ export class BaseNewStreamPlugin extends BasePlugin {
             body: JSON.stringify(body),
             eventHandlers: {
                 onSuccessResponse: async (response) => {
-                    console.log('mmm configure response', response)
                     this._configureSent = true
                     const messageData = response.data
                     const messageBody = messageData.split('\r\n')
-                    console.log('mmm configure messageBody', messageBody)
                     const data = messageBody[messageBody.length - 1]
-                    console.log('mmm configure data', data)
                     const parsed = JSON.parse(data)
-                    console.log('mmm configure parsed', parsed)
                     await this._connection.setRemoteDescription(parsed.jsep)
-                    //await this.processIceCandidates()
                     this._candidates = []
                 },
             }
@@ -327,7 +303,6 @@ export class BaseNewStreamPlugin extends BasePlugin {
     }
 
     async stopMedia () {
-        //await this.detach()
         if (this._connection) {
             this._connection.close()
             this._connection = null
@@ -355,16 +330,10 @@ export class BaseNewStreamPlugin extends BasePlugin {
         await this.stopMedia()
 
         this._sendDetach()
-
-        //this.session._ua.emit('stopScreenShare')
-
-        /*if (this._connection) {
-            this._connection.close()
-            this._connection = null
-        }*/
     }
 
     async generateStream () {
         this.stream = new MediaStream()
+        return this.stream
     }
 }

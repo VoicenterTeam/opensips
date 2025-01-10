@@ -38,6 +38,8 @@ import {
     IOpenSIPSJSOptions,
     TriggerListenerOptions, CustomLoggerType, Modules, AudioModuleName
 } from '@/types/rtc'
+import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
 import {
     IMessage,
@@ -189,18 +191,27 @@ class OpenSIPSJS extends UA {
     }
 
     public use (plugin: BaseNewStreamPlugin | BaseProcessStreamPlugin) {
+        console.log('RRR use', plugin)
         // Cannot use `use` after begin
         //const session = Object.values(this._janus_sessions)[0]
+        if (
+            this.newStreamPlugins.find((el) => el.name === plugin.name) ||
+            this.processStreamPlugins.find((el) => el.name === plugin.name)
+        ) {
+            throw new Error(`Plugin with name ${plugin.name} already exists`)
+        }
 
         if (plugin instanceof BaseNewStreamPlugin) {
             plugin.setOpensips(this)
             //plugin.setSession(session)
 
+            console.log('RRR push to newStreamPlugins')
             this.newStreamPlugins.push(plugin)
         } else if (plugin instanceof BaseProcessStreamPlugin) {
             plugin.setOpensips(this)
             //plugin.setSession(session)
 
+            console.log('RRR push to processStreamPlugins')
             this.processStreamPlugins.push(plugin)
         } else {
             throw new Error('Wrong plugin instance')
@@ -1480,3 +1491,7 @@ class OpenSIPSJS extends UA {
 }
 
 export default OpenSIPSJS
+export {
+    BaseProcessStreamPlugin,
+    BaseNewStreamPlugin
+}

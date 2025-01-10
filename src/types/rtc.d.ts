@@ -131,7 +131,11 @@ export type MSRPModuleName = typeof MODULES.MSRP
 
 export type Modules = AudioModuleName | VideoModuleName | MSRPModuleName
 
-export type IOpenSIPSConfiguration = Omit<UAConfiguration, 'sockets'>
+type UAConfigurationExtended = UAConfiguration & {
+    overrideUserAgent: (userAgent: string) => string
+}
+
+export type IOpenSIPSConfiguration = Omit<UAConfigurationExtended, 'sockets'>
 
 export interface IOpenSIPSJSOptions {
     configuration: IOpenSIPSConfiguration
