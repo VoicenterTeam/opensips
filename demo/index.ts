@@ -16,6 +16,7 @@ import { CallTime } from '../src/types/timer'
 let openSIPSJS = null
 let msrpHistoryDb = null
 let addCallToCurrentRoom = false
+let onHoldWhenAddCall = false
 
 /* DOM Elements */
 
@@ -37,6 +38,7 @@ const DNDInputEl = document.getElementById('DNDInputEl') as HTMLInputElement
 const muteContainerEl = document.getElementById('muteContainerEl') as HTMLElement
 
 const addToCurrentRoomInputEl = document.getElementById('addToCurrentRoomInputEl') as HTMLInputElement
+const onHoldWhenAddCallInputEl = document.getElementById('onHoldWhenAddCallInputEl') as HTMLInputElement
 
 const inputLevelApplyButtonEl = document.getElementById('inputLevelApplyButton') as HTMLButtonElement
 const outputLevelApplyButtonEl = document.getElementById('outputLevelApplyButton') as HTMLButtonElement
@@ -462,6 +464,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 const target = event.target as HTMLInputElement
                 addCallToCurrentRoom = target.checked
+            })
+    }
+
+    if (onHoldWhenAddCallInputEl) {
+        onHoldWhenAddCallInputEl.addEventListener(
+            'change',
+            async (event) => {
+                event.preventDefault()
+
+                const target = event.target as HTMLInputElement
+                onHoldWhenAddCall = target.checked
             })
     }
 })
@@ -903,7 +916,7 @@ makeCallFormEl?.addEventListener(
             return
         }
 
-        openSIPSJS.audio?.initCall(target, addCallToCurrentRoom)
+        openSIPSJS.audio?.initCall(target, addCallToCurrentRoom, onHoldWhenAddCall)
     }
 )
 

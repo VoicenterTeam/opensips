@@ -1310,7 +1310,7 @@ export class AudioModule {
     }
 
     //@requireInitialization()
-    public initCall (target: string, addToCurrentRoom: boolean) {
+    public initCall (target: string, addToCurrentRoom: boolean, holdOtherCalls = false) {
         //this.checkInitialized()
 
         if (target.length === 0) {
@@ -1348,6 +1348,16 @@ export class AudioModule {
                 callId: call.id,
                 roomId: this.currentActiveRoomId
             })
+
+            // If holdOtherCalls is true, put all other calls in the room on hold
+            if (holdOtherCalls) {
+                const callsToHold = Object.values(this.extendedCalls)
+                    .filter(c => c.roomId === this.currentActiveRoomId && c._id !== call.id)
+
+                for (const otherCall of callsToHold) {
+                    this.holdCall(otherCall._id, true)
+                }
+            }
         }
 
         call.connection.addEventListener('track', (event: RTCTrackEvent) => {
