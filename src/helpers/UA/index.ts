@@ -58,6 +58,12 @@ export interface OutgoingMSRPSessionEvent {
     request: IncomingRequest;
 }
 
+export interface VideoConferenceJoinOptions {
+    eventHandlers: Array<unknown>
+    extraHeaders: Array<string>
+    mediaConstraints: MediaStreamConstraints
+}
+
 export type MSRPSessionEvent = IncomingMSRPSessionEvent | OutgoingMSRPSessionEvent;
 
 const UAConstructor: typeof UAType = UA as unknown as typeof UAType
@@ -97,7 +103,7 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
         return super.call(target, options)
     }
 
-    joinVideoCall (target, displayName, options) {
+    joinVideoCall (target: string, displayName: string, options: VideoConferenceJoinOptions) {
         logger.debug('call()')
 
         const session = new JanusSession(this)
@@ -116,6 +122,12 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
         for (const idx in this._janus_sessions) {
             this._janus_sessions[idx].connectScreenShare()
+        }
+    }
+
+    changeMediaConstraints (constraints: MediaStreamConstraints) {
+        for (const idx in this._janus_sessions) {
+            this._janus_sessions[idx].changeMediaConstraints(constraints)
         }
     }
 
@@ -354,7 +366,6 @@ export default class UAExtended extends UAConstructor implements UAExtendedInter
 
     receiveRequest (request: any) {
         const method = request.method
-        console.log('-----------')
         // Check that request URI points to us.
         if (request.ruri.user !== this._configuration.uri.user &&
             request.ruri.user !== this._contact.uri.user) {
@@ -751,7 +762,6 @@ function onTransportDisconnect (data) {
 
 // Transport data event.
 function onTransportData (data) {
-    console.log('onTransportData', data)
     const transport = data.transport
     let message = data.message
 
@@ -759,27 +769,21 @@ function onTransportData (data) {
     //console.log('onTransportData method', message.method)
 
     if (!message) {
-        console.log('if 1 return')
         return
     }
 
     if (this._status === C.STATUS_USER_CLOSED &&
         message instanceof SIPMessage.IncomingRequest) {
-        console.log('if 2 return')
         return
     }
 
     // Do some sanity check.
     if (!sanityCheck(message, this, transport)) {
-        console.log('if 3 return')
         return
     }
 
-    console.log('onTransportData message', message)
-    console.log('onTransportData instanceof', message instanceof SIPMessage.IncomingRequest)
     if (message instanceof SIPMessage.IncomingRequest) {
         message.transport = transport
-        console.log('onTransportData receiveRequest')
         this.receiveRequest(message)
     } else if (message instanceof SIPMessage.IncomingResponse) {
         /* Unike stated in 18.1.2, if a response does not match

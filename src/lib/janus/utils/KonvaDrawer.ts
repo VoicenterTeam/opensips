@@ -105,10 +105,23 @@ export class KonvaDrawer {
     }
 
     addImage (layer, imageObj) {
+        let imageWidth, imageHeight
+        const sizeDiff = imageObj.width / imageObj.height
+
+        if (this.stage.width() < imageObj.width) {
+            imageWidth = this.stage.width()
+            imageHeight = this.stage.width() / sizeDiff
+        } else {
+            imageWidth = imageObj.width
+            imageHeight = imageObj.width / sizeDiff
+        }
+
         const konvaImage = new Konva.Image({
             image: imageObj,
-            x: (this.stage.width() - imageObj.width) / 2, // Center horizontally
-            y: (this.stage.height() - imageObj.height) / 2, // Center vertically
+            x: (this.stage.width() - imageWidth) / 2, //(this.stage.width() - imageObj.width) / 2, // Center horizontally
+            y: (this.stage.height() - imageHeight) / 2, //(this.stage.height() - imageObj.height) / 2, // Center vertically
+            width: imageWidth,
+            height: imageHeight,
         })
 
         // Add the image to the layer

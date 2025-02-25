@@ -27,7 +27,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
     private _lastTrickleReceived: boolean
     private _publisherSubscribeSent: boolean
     private opaqueId: string
-    private handleId: number
+    protected handleId: number
     private readonly type: string
     protected _connection: RTCPeerConnection
     protected jsep_offer: RTCSessionDescription | void
@@ -44,7 +44,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this.type = type
     }
 
-    connect (options: ConnectOptions = {}) {
+    public connect (options: ConnectOptions = {}) {
         this.opaqueId = this.session.generateOpaqueId()
 
         const extraHeaders = Utils.cloneArray(options.extraHeaders)
@@ -78,15 +78,15 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this._sendInitialRequest()
     }
 
-    getStream () {
+    public getStream () {
         return this.stream
     }
 
-    getConnection () {
+    public getConnection () {
         return this._connection
     }
 
-    _createRTCConnection () {
+    private _createRTCConnection () {
         this._connection = new RTCPeerConnection({
             iceServers: [
                 {
@@ -127,13 +127,13 @@ export class BaseNewStreamPlugin extends BasePlugin {
         }
     }
 
-    addTracks (tracks) {
+    private addTracks (tracks) {
         tracks.forEach((track) => {
             this._connection.addTrack(track)
         })
     }
 
-    async _sendInitialRequest () {
+    private async _sendInitialRequest () {
         const request_sender = new RequestSender(this.session._ua, this._request, {
             onRequestTimeout: () => {
                 this.session.onRequestTimeout()
@@ -152,11 +152,15 @@ export class BaseNewStreamPlugin extends BasePlugin {
 
         await this.generateStream()
 
+        if (!this.stream || !this.stream.getTracks().length) {
+            return
+        }
+
         this.addTracks(this.stream.getTracks())
 
         const options = {
-            audio: false, // offerToReceiveAudio
-            video: true, // offerToReceiveVideo
+            audio: false,
+            video: true,
         }
         this.jsep_offer = await this._connection.createOffer(options)
 
@@ -175,7 +179,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
         request_sender.send()
     }
 
-    _receiveInviteResponse (response) {
+    private _receiveInviteResponse (response) {
         if (this._publisherSubscribeSent || !response.body) {
             return
         }
@@ -237,7 +241,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this._publisherSubscribeSent = true
     }
 
-    async _sendConfigureMessage (options) {
+    private async _sendConfigureMessage (options) {
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
             candidate,
@@ -285,7 +289,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
         })
     }
 
-    _sendDetach () {
+    private _sendDetach () {
         const body = {
             janus: 'detach',
             handle_id: this.handleId,
@@ -302,14 +306,18 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this.session._ua.emit('pluginDetach', this.name)
     }
 
-    async stopMedia () {
+    protected async stopMedia () {
         if (this._connection) {
             this._connection.close()
             this._connection = null
         }
+
+        if (this.stream) {
+            this.stream = null
+        }
     }
 
-    async stop () {
+    public async stop () {
         await this.session.stopProcessPlugins(this.type)
 
         const senders = this._connection.getSenders()
@@ -332,8 +340,7 @@ export class BaseNewStreamPlugin extends BasePlugin {
         this._sendDetach()
     }
 
-    async generateStream () {
-        this.stream = new MediaStream()
-        return this.stream
+    public async generateStream () {
+        throw new Error('generateStream method is not implemented')
     }
 }

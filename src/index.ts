@@ -40,6 +40,10 @@ import {
 } from '@/types/rtc'
 import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
 import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
+import { ScreenSharePlugin } from '@/lib/janus/ScreenSharePlugin'
+import { ScreenShareWhiteBoardPlugin } from '@/lib/janus/ScreenShareWhiteBoardPlugin'
+import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
+import { WhiteBoardPlugin } from '@/lib/janus/WhiteBoardPlugin'
 
 import {
     IMessage,
@@ -191,7 +195,6 @@ class OpenSIPSJS extends UA {
     }
 
     public use (plugin: BaseNewStreamPlugin | BaseProcessStreamPlugin) {
-        console.log('RRR use', plugin)
         // Cannot use `use` after begin
         //const session = Object.values(this._janus_sessions)[0]
         if (
@@ -205,13 +208,11 @@ class OpenSIPSJS extends UA {
             plugin.setOpensips(this)
             //plugin.setSession(session)
 
-            console.log('RRR push to newStreamPlugins')
             this.newStreamPlugins.push(plugin)
         } else if (plugin instanceof BaseProcessStreamPlugin) {
             plugin.setOpensips(this)
             //plugin.setSession(session)
 
-            console.log('RRR push to processStreamPlugins')
             this.processStreamPlugins.push(plugin)
         } else {
             throw new Error('Wrong plugin instance')
@@ -1493,5 +1494,9 @@ class OpenSIPSJS extends UA {
 export default OpenSIPSJS
 export {
     BaseProcessStreamPlugin,
-    BaseNewStreamPlugin
+    BaseNewStreamPlugin,
+    ScreenSharePlugin,
+    ScreenShareWhiteBoardPlugin,
+    StreamMaskPlugin,
+    WhiteBoardPlugin
 }

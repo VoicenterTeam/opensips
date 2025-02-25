@@ -58,6 +58,10 @@ export class VideoModule {
         this.context.enableJanusVideo(false)
     }
 
+    changeMediaConstraints (constraints: MediaStreamConstraints) {
+        this.context.changeMediaConstraints(constraints)
+    }
+
     startScreenShare () {
         this.context.startScreenShare()
     }

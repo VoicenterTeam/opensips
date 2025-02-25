@@ -70,7 +70,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
    * @param {object} options - (optional) additional mask effect options
    * @return {MediaStream} processed stream with mask effect
    */
-    async start (stream) {
+    public async start (stream) {
         this.canvas = document.createElement('canvas')
         this.ctx = this.canvas.getContext('2d')
 
@@ -107,7 +107,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
      * Listens to visibility change (like switching active tab)
      * and switches between different kinds of requestAnimationFrame
      */
-    processVisibilityChange () {
+    private processVisibilityChange () {
         if (!document) {
             return
         }
@@ -128,7 +128,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
      * @param {MediaStreamConstraints} options - media stream constraints
      * @return {MediaStream} combined stream with both audio and video tracks
      */
-    async populateWithAudioTracks (videoOnlyStream: MediaStream, audioTracks: Array<MediaStreamTrack>) {
+    private async populateWithAudioTracks (videoOnlyStream: MediaStream, audioTracks: Array<MediaStreamTrack>) {
         const combinedStream = new MediaStream()
 
         videoOnlyStream.getVideoTracks().forEach(track => {
@@ -145,7 +145,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
     /**
    * Stops stream processing
    */
-    stop () {
+    public stop () {
         if (this.rafId) {
             window.cancelAnimationFrame(this.rafId)
         }
@@ -170,7 +170,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
         this.ctx = null
     }
 
-    setupVisualizationConfig (config: VisualizationConfigType) {
+    public setupVisualizationConfig (config: VisualizationConfigType) {
         this.visualizationConfig = mergeConfig(this.visualizationConfig, config)
     }
 
@@ -178,7 +178,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
    * Starts rendering process by calling itself recursively.
    * Uses requestAnimationFrame method for recursive invoking.
    */
-    async renderPrediction () {
+    private async renderPrediction () {
         await this.renderResult()
 
         if (this.visibilityState === 'visible') {
@@ -198,7 +198,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
    * Creates Body Segmenter which is used for people segmentation and poses estimation
    * @return {segmenter} segmenter instance
    */
-    async createSegmenter () {
+    private async createSegmenter () {
         return bodySegmentation.createSegmenter(bodySegmentation.SupportedModels.MediaPipeSelfieSegmentation, {
             runtime: SEGMENTER_CONFIG.runtime,
             modelType: SEGMENTER_CONFIG.modelType,
@@ -210,7 +210,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
     /**
    * Render function which draws masked effect to canvas.
    */
-    async renderResult () {
+    private async renderResult () {
         // ReadyState >= 2 means that video data is ready to be played
         if (this.camera.video.readyState < 2) {
             await new Promise((resolve) => {
@@ -264,7 +264,6 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
         if (segmentation && segmentation.length > 0) {
             switch (this.maskEffectType) {
                 case MASK_EFFECT_TYPE_CONFIG.bokehEffect:
-                    console.log('applyBokehEffect')
                     await this.applyBokehEffect(segmentation)
                     break
                 case MASK_EFFECT_TYPE_CONFIG.backgroundImageEffect:
@@ -279,7 +278,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
         this.camera.drawToCanvas(this.canvas)
     }
 
-    async applyBokehEffect (segmentation) {
+    private async applyBokehEffect (segmentation) {
         const options = this.visualizationConfig
 
         await bodySegmentation.drawBokehEffect(
@@ -292,7 +291,7 @@ export class StreamMaskPlugin extends BaseProcessStreamPlugin {
         )
     }
 
-    async applyBackgroundImageEffect (segmentation) {
+    private async applyBackgroundImageEffect (segmentation) {
         const base64BackgroundImage = this.base64ImageMask
         const backgroundImage = new Image()
         backgroundImage.src = base64BackgroundImage

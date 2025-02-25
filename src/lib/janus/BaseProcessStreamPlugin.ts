@@ -16,15 +16,15 @@ export class BaseProcessStreamPlugin extends BasePlugin {
         this.type = type
     }
 
-    start (stream) {
+    public start (stream) {
         return stream
     }
 
-    stop () {
-        console.log('stop')
+    public stop () {
+        throw new Error('stop method is not implemented')
     }
 
-    async process (stream) {
+    public async process (stream) {
         if (this.immediate) {
             const processedStream = await this.start(stream)
             this.running = true
@@ -34,16 +34,16 @@ export class BaseProcessStreamPlugin extends BasePlugin {
         return stream
     }
 
-    async connect () {
+    public async connect () {
         this.running = true
         await this.session.resyncPlugins(this.type)
     }
 
-    terminate () {
+    public terminate () {
         this.stop()
     }
 
-    async kill () {
+    public async kill () {
         this.stop()
         this.running = false
         await this.session.resyncPlugins(this.type)

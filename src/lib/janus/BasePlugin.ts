@@ -7,15 +7,15 @@ export class BasePlugin {
         this.name = name
     }
 
-    setOpensips (opensips) {
+    public setOpensips (opensips) {
         this.opensips = opensips
     }
 
-    setSession (session) {
+    public setSession (session) {
         this.session = session
     }
 
-    kill () {
+    public kill () {
         this.opensips.kill(this.name)
     }
 }

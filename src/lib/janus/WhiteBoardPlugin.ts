@@ -5,40 +5,80 @@ import { KonvaDrawer } from './utils/KonvaDrawer'
 import { KonvaDrawerOptions } from './types/konvaDrawer'
 import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
 
+interface WhiteboardElementSelectors {
+    container: string
+    drawerContainer: string
+    konvaContainer: HTMLElement
+    document: HTMLElement
+}
+
+interface WhiteboardOptions {
+    mode: ConferencingModeType
+    imageSrc?: string
+    selectors: Partial<WhiteboardElementSelectors>
+}
+
+const defaultElementSelectors: WhiteboardElementSelectors = {
+    container: 'presentation-video-container',
+    drawerContainer: 'presentationCanvasWrapper'
+}
+
 export class WhiteBoardPlugin extends BaseNewStreamPlugin {
     private visualizationConfig = {}
     private rafId: number | null = null
     private imageSrc: string | null = null
     private konvaDrawer: KonvaDrawer | null = null
+    private selectors: Partial<WhiteboardElementSelectors> = {}
     public mode: ConferencingModeType = undefined
 
-    constructor (options: any = {}) {
+    constructor (options: WhiteboardOptions) {
         super('WhiteBoard')
 
         this.mode = options.mode
         if (options.imageSrc) {
             this.imageSrc = options.imageSrc
         }
+
+        this.selectors = {
+            ...defaultElementSelectors,
+            ...(options.selectors || {})
+        }
+
+        if (!this.selectors.document) {
+            this.selectors.document = document
+        }
     }
 
-    setupDrawerOptions (options: KonvaDrawerOptions) {
+    public setupDrawerOptions (options: KonvaDrawerOptions) {
         if (this.konvaDrawer) {
             this.konvaDrawer.setupDrawerOptions(options)
         }
     }
 
-    setupDrawerImage (imageSrc) {
+    public setMode (mode: ConferencingModeType, imageSrc?: string) {
+        this.mode = mode
+
+        if (imageSrc) {
+            this.imageSrc = imageSrc
+        }
+    }
+
+    public setupDrawerImage (imageSrc) {
         this.imageSrc = imageSrc
     }
 
-    drawEmptyWhiteboard () {
-        const wrapperEl = document.getElementById('presentation-video-container')
+    private drawEmptyWhiteboard () {
+        const wrapperEl = this.selectors.document.getElementById(this.selectors.container)
+        wrapperEl.style.setProperty('min-width', '100%')
+        wrapperEl.style.setProperty('height', '100%')
 
         const width = wrapperEl.clientWidth
         const height = wrapperEl.clientHeight
 
+        const konvaContainer = this.selectors.document.getElementById(this.selectors.drawerContainer)
+
         this.konvaDrawer = new KonvaDrawer({
-            container: 'presentationCanvasWrapper',
+            container: konvaContainer,
             width: width,
             height: height
         })
@@ -49,16 +89,20 @@ export class WhiteBoardPlugin extends BaseNewStreamPlugin {
         this.konvaDrawer.initFreeDrawing(layer)
     }
 
-    async drawImageWhiteboard () {
-        const wrapperEl = document.getElementById('presentation-video-container')
+    private async drawImageWhiteboard () {
+        const wrapperEl = this.selectors.document.getElementById(this.selectors.container)
+        wrapperEl.style.setProperty('min-width', '100%')
+        wrapperEl.style.setProperty('height', '100%')
 
         const width = wrapperEl.clientWidth
         const height = wrapperEl.clientHeight
 
         const imageObj = await loadImage(this.imageSrc)
 
+        const konvaContainer = this.selectors.document.getElementById(this.selectors.drawerContainer)
+
         this.konvaDrawer = new KonvaDrawer({
-            container: 'presentationCanvasWrapper',
+            container: konvaContainer,
             width: width,
             height: height
         })
@@ -70,7 +114,7 @@ export class WhiteBoardPlugin extends BaseNewStreamPlugin {
         this.konvaDrawer.initFreeDrawing(layer)
     }
 
-    async generateStream () {
+    public async generateStream () {
         if (this.mode === CONFERENCING_MODE.WHITEBOARD) {
             this.drawEmptyWhiteboard()
         } else if (this.mode === CONFERENCING_MODE.IMAGE_WHITEBOARD) {
@@ -79,7 +123,7 @@ export class WhiteBoardPlugin extends BaseNewStreamPlugin {
             return
         }
 
-        const container = document.getElementById('presentationCanvasWrapper')
+        const container = this.selectors.document.getElementById(this.selectors.drawerContainer)
         const canvas = container.querySelector('canvas')
 
         const presentationCtx = canvas.getContext('2d')
@@ -97,7 +141,7 @@ export class WhiteBoardPlugin extends BaseNewStreamPlugin {
         this.stream = presentationCanvasStream
     }
 
-    async kill () {
+    public async kill () {
         this.konvaDrawer = null
 
         await this.stop()

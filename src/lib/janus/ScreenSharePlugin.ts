@@ -5,18 +5,22 @@ export class ScreenSharePlugin extends BaseNewStreamPlugin {
         super('ScreenShare', 'screen')
     }
 
-    async generateStream () {
+    public async generateStream () {
         try {
             this.stream = await navigator.mediaDevices.getDisplayMedia()
             this.stream.getVideoTracks()[0].onended = () => {
-                this.stopMedia()
+                this.kill()
             }
 
             this.session._ua.emit('startScreenShare', {
-                stream: this.stream
+                stream: this.stream,
+                handleId: this.handleId,
+                sender: 'me',
+                type: 'publisher'
             })
         } catch (error) {
-            await this.stopMedia()
+            this.kill()
+
             console.error(error)
         }
 

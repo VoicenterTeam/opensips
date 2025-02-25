@@ -72,8 +72,6 @@ export default class ScreenSharePluginOld {
 
         // Send ICE events to Janus.
         this._connection.onicecandidate = (event) => {
-
-            console.log('AAA onicecandidate', event)
             if (this._connection.signalingState !== 'stable' && this._connection.signalingState !== 'have-local-offer') {
                 console.log('skipining icecandidate event screensharing ',this._connection.signalingState,event)
                 return
@@ -95,7 +93,6 @@ export default class ScreenSharePluginOld {
 
             // Debounce calling configure request with trickles till the last trickle
             iceCandidateTimeout = setTimeout(() => {
-                console.log('AAA setTimeout')
                 this._lastTrickleReceived = true
 
                 if (this._subscribeSent && !this._configureSent) {

@@ -23,6 +23,9 @@ const base64Image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABGYAAAFTCAIAA
 let openSIPSJS = null
 let msrpHistoryDb = null
 let addCallToCurrentRoom = false
+let audioInputDeviceId = null
+let videoInputDeviceId = null
+let audioOutputDeviceId = null
 const isWhiteboardEnabled = false
 
 /* DOM Elements */
@@ -65,6 +68,10 @@ const messagesContainerEl = document.getElementById('messagesContainer')
 
 const audioChangeButtonEl = document.getElementById('audioChangeButton')
 const videoChangeButtonEl = document.getElementById('videoChangeButton')
+
+const microphoneVideoEl = document.getElementById('microphoneVideoEl') as HTMLSelectElement
+const cameraVideoEl = document.getElementById('cameraVideoEl') as HTMLSelectElement
+const speakerVideoEl = document.getElementById('speakerVideoEl') as HTMLSelectElement
 
 const screenShareButtonEl = document.getElementById('screenShareButton')
 
@@ -588,7 +595,8 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         })
 
         const whiteBoardPlugin = new WhiteBoardPlugin({
-            mode: 'whiteboard'
+            mode: 'imageWhiteboard',
+            imageSrc: base64Image
         })
 
         openSIPSJS.use(screenSharePlugin)
@@ -609,6 +617,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 msrpHistoryDb.connect()
             })
             .on('changeActiveCalls', (sessions) => {
+                console.log('sessions', sessions)
                 calculateDtmfButtonDisability(sessions)
                 calculateMuteButtonDisability(sessions)
                 calculateAgentVolumeLevel(sessions)
@@ -752,8 +761,56 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                     }
                 })
             })
-            .on('conferenceStart', () => {
+            .on('conferenceStart', async () => {
                 videoCallFormEl.style.display = 'none'
+
+                const devices = await navigator.mediaDevices.enumerateDevices()
+
+                const audioInputDevices = devices.filter(d => d.kind === 'audioinput')
+                const videoInputDevices = devices.filter(d => d.kind === 'videoinput')
+                const audioOutputDevices = devices.filter(d => d.kind === 'audiooutput')
+
+                if (microphoneVideoEl) {
+                    while (microphoneVideoEl.childNodes.length >= 1) {
+                        microphoneVideoEl.removeChild(microphoneVideoEl.firstChild)
+                    }
+
+                    audioInputDevices.forEach((d) => {
+                        const newOption = document.createElement('option')
+                        newOption.value = d.deviceId
+                        newOption.text = d.label
+                        microphoneVideoEl.appendChild(newOption)
+                    })
+                }
+
+                if (cameraVideoEl) {
+                    while (cameraVideoEl.childNodes.length >= 1) {
+                        cameraVideoEl.removeChild(cameraVideoEl.firstChild)
+                    }
+
+                    videoInputDevices.forEach((d) => {
+                        const newOption = document.createElement('option')
+                        newOption.value = d.deviceId
+                        newOption.text = d.label
+                        cameraVideoEl.appendChild(newOption)
+                    })
+                }
+
+                if (speakerVideoEl) {
+                    while (speakerVideoEl.childNodes.length >= 1) {
+                        speakerVideoEl.removeChild(speakerVideoEl.firstChild)
+                    }
+
+                    audioOutputDevices.forEach((d) => {
+                        const newOption = document.createElement('option')
+                        newOption.value = d.deviceId
+                        newOption.text = d.label
+                        speakerVideoEl.appendChild(newOption)
+                    })
+                }
+            })
+            .on('conferenceEnd', () => {
+                videoCallFormEl.style.display = 'block'
             })
             .on('changeMainVideoStream', ({ name, stream }) => {
                 const videoContainer = document.getElementById('mainVideoElementContainer')
@@ -793,7 +850,6 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 videoContainer.appendChild(nameElement)
             })
             .on('startScreenShare', ({ stream }) => {
-                console.log('startScreenShare', stream)
                 screenShareButtonEl.innerText = 'Stop Screen Share'
                 screenShareWhiteboardButtonEl.style.display = 'block'
 
@@ -834,7 +890,6 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 videoContainer.appendChild(nameElement)
             })
             .on('stopScreenShare', () => {
-                console.log('stopScreenShare')
                 screenShareButtonEl.innerText = 'Start Screen Share'
                 screenShareWhiteboardButtonEl.style.display = 'none'
             })
@@ -847,11 +902,9 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
                 blurButtonEl.innerText = 'Start Blur'
             })*/
             .on('startWhiteboard', () => {
-                console.log('startWhiteboard')
                 whiteboardButtonEl.innerText = 'Stop Whiteboard'
             })
             .on('stopWhiteboard', () => {
-                console.log('stopWhiteboard')
                 whiteboardButtonEl.innerText = 'Start Whiteboard'
             })
             .on('memberJoin', (data) => {
@@ -1260,6 +1313,98 @@ speakerEl?.addEventListener(
 
         const target = event.target as HTMLSelectElement
         await openSIPSJS.audio.setSpeaker(target.value)
+    })
+
+async function processMediaConstraintsChange () {
+    const mediaConstraints: MediaStreamConstraints = {
+        audio: true,
+        video: true
+    }
+
+    if (audioInputDeviceId) {
+        mediaConstraints.audio = {
+            deviceId: {
+                exact: audioInputDeviceId
+            }
+        }
+    }
+
+    if (videoInputDeviceId) {
+        mediaConstraints.video = {
+            deviceId: {
+                exact: videoInputDeviceId
+            }
+        }
+    }
+    console.log('mediaConstraints', mediaConstraints)
+    await openSIPSJS.video.changeMediaConstraints(mediaConstraints)
+}
+
+microphoneVideoEl?.addEventListener(
+    'change',
+    async (event) => {
+        event.preventDefault()
+
+        const target = event.target as HTMLSelectElement
+        console.log('microphoneVideoEl target', target.value)
+        audioInputDeviceId = target.value
+
+        processMediaConstraintsChange()
+    })
+
+cameraVideoEl?.addEventListener(
+    'change',
+    async (event) => {
+        event.preventDefault()
+
+        const target = event.target as HTMLSelectElement
+        console.log('cameraVideoEl target', target.value)
+        videoInputDeviceId = target.value
+        //await openSIPSJS.audio.setMicrophone(target.value)
+
+        processMediaConstraintsChange()
+    })
+
+speakerVideoEl?.addEventListener(
+    'change',
+    async (event) => {
+        event.preventDefault()
+
+        const target = event.target as HTMLSelectElement
+        console.log('speakerVideoEl target', target.value)
+        audioOutputDeviceId = target.value
+
+        const videoElements = document.querySelectorAll('video')
+        if (audioOutputDeviceId && videoElements.length) {
+            videoElements.forEach((element) => {
+                if (!element || !audioOutputDeviceId) {
+                    return
+                }
+
+                if (typeof element.sinkId !== 'undefined') {
+                    try {
+                        element.setSinkId(audioOutputDeviceId)
+                        console.log(`Success, audio output device attached: ${audioOutputDeviceId}`)
+                    } catch (error) {
+                        let errorMessage = error
+                        if (error.name === 'SecurityError') {
+                            errorMessage = `You need to use HTTPS for selecting audio output device: ${error}`
+                        }
+                        console.error(errorMessage)
+                    }
+                } else {
+                    console.warn('Browser does not support output device selection.')
+                }
+                //DeviceManager.changeAudioOutput(element, settingsModel.value.audioOutput)
+            })
+
+            /*await nextTick(() => {
+                videoElements.forEach(element => {
+                    DeviceManager.changeAudioOutput(element, settingsModel.value.audioOutput)
+                })
+            })*/
+        }
+        //await openSIPSJS.audio.setMicrophone(target.value)
     })
 
 muteWhenJoinInputEl?.addEventListener(

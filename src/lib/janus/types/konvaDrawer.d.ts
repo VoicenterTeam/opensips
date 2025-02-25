@@ -10,13 +10,13 @@ export type KonvaScreenShareDrawerOptions = {
 }
 
 export type KonvaDrawerConfig = KonvaDrawerOptions & {
-    container: string
+    container: string | HTMLElement
     width: number
     height: number
 }
 
 export type KonvaScreenShareConfig = KonvaScreenShareDrawerOptions & {
-    container: string
+    container: string | HTMLElement
     width: number
     height: number
 }

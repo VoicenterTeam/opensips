@@ -1,6 +1,6 @@
 {
   "name": "@voicenter-team/opensips-js",
-  "version": "1.0.97",
+  "version": "1.0.125",
   "description": "The JS package for opensips",
   "default": "src/index.ts",
   "jsdelivr": "dist/opensips-js.iife.js",
@@ -43,8 +43,8 @@
     "@typescript-eslint/eslint-plugin": "^5.53.0",
     "@typescript-eslint/parser": "^5.53.0",
     "@vitejs/plugin-vue": "^4.2.3",
-    "@voicenter-team/eslint-config-ts": "^1.0.21",
     "@voicenter-team/aws-uploader": "^1.0.10",
+    "@voicenter-team/eslint-config-ts": "^1.0.21",
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
     "eslint": "^8.35.0",
@@ -61,6 +61,7 @@
   "dependencies": {
     "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@tensorflow-models/body-segmentation": "^1.0.2",
+    "@tensorflow/tfjs": "^4.22.0",
     "@tensorflow/tfjs-backend-wasm": "^4.22.0",
     "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@tensorflow/tfjs-backend-webgpu": "^4.22.0",

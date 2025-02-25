@@ -69,8 +69,6 @@ export default class RTCSession extends EventEmitter {
 
         super()
 
-        console.log('constructor call')
-
         this._id = null
         this._ua = ua
         this._status = C.STATUS_NULL
@@ -172,6 +170,7 @@ export default class RTCSession extends EventEmitter {
         // Media state
         this.isAudioOn = true
         this.isVideoOn = true
+        this.mediaConstraints = {}
     }
 
     /**
@@ -301,6 +300,9 @@ export default class RTCSession extends EventEmitter {
             audio: true,
             video: true
         })
+
+        this.mediaConstraints = { ...mediaConstraints }
+
         const mediaStream = options.mediaStream || null
         const pcConfig = Utils.cloneObject(options.pcConfig, { iceServers: [] })
         const rtcConstraints = options.rtcConstraints || null
@@ -327,9 +329,7 @@ export default class RTCSession extends EventEmitter {
         }
 
         // Check target validity.
-        console.log('target', target)
         target = this._ua.normalizeTarget(target)
-        console.log('normalizeTarget target', target)
         this.room_id = target.user
         this.target = target
 
@@ -403,8 +403,6 @@ export default class RTCSession extends EventEmitter {
         this._direction = 'outgoing'
         this._local_identity = this._request.from
         this._remote_identity = this._request.to
-
-        console.log('this._remote_identity', this._remote_identity)
 
         // User explicitly provided a newRTCSession callback for this session.
         if (initCallback) {
@@ -713,7 +711,7 @@ export default class RTCSession extends EventEmitter {
                     // Audio and/or video requested, prompt getUserMedia.
                     this._localMediaStreamLocallyGenerated = true
 
-                    return navigator.mediaDevices.getUserMedia(mediaConstraints)
+                    return this.loadStream()//navigator.mediaDevices.getUserMedia(mediaConstraints)
                         .catch((error) => {
                             if (this._status === C.STATUS_TERMINATED) {
                                 throw new Error('terminated')
@@ -950,7 +948,6 @@ export default class RTCSession extends EventEmitter {
 
                     // Restore the dialog into 'this' in order to be able to send the in-dialog BYE :-).
                     this._dialog = dialog
-                    console.log('SET DIALOG terminate')
 
                     // Restore the dialog into 'ua' so the ACK can reach 'this' session.
                     this._ua.newDialog(dialog)
@@ -1014,12 +1011,14 @@ export default class RTCSession extends EventEmitter {
 
     startAudio () {
         DeviceManager.toggleAudioMute(this.stream)
+        this._toggleMuteAudio(false)
         this.enableAudio(true)
         this.isAudioOn = true
     }
 
     stopAudio () {
         DeviceManager.toggleAudioMute(this.stream)
+        this._toggleMuteAudio(true)
         this.enableAudio(false)
         this.isAudioOn = false
     }
@@ -1058,12 +1057,15 @@ export default class RTCSession extends EventEmitter {
 
     startVideo () {
         DeviceManager.toggleVideoMute(this.stream)
+        this._toggleMuteVideo(false)
         this.enableVideo(true)
         this.isVideoOn = true
     }
 
     stopVideo () {
         DeviceManager.toggleVideoMute(this.stream)
+        // do track.stop() instead of track.enabled = false
+        this._toggleMuteVideo(true)
         this.enableVideo(false)
         this.isVideoOn = false
     }
@@ -1504,7 +1506,6 @@ export default class RTCSession extends EventEmitter {
      * In dialog Request Reception
      */
     receiveRequest (request) {
-        console.log('mmm receiveRequest 1', request)
         logger.debug('receiveRequest()')
 
         if (request.method === JsSIP_C.CANCEL) {
@@ -1599,7 +1600,6 @@ export default class RTCSession extends EventEmitter {
                     }
                     break
                 case JsSIP_C.INVITE:
-                    console.log('mmm invite 1')
                     if (this._status === C.STATUS_CONFIRMED) {
                         if (request.hasHeader('replaces')) {
                             this._receiveReplaces(request)
@@ -1853,8 +1853,6 @@ export default class RTCSession extends EventEmitter {
     }
 
     _createRTCConnection (pcConfig, rtcConstraints) {
-        console.log('pcConfig', pcConfig)
-        console.log('rtcConstraints', rtcConstraints)
         const config = {
             iceServers: this.stunServers,
             sdpSemantics: 'unified-plan',
@@ -1933,7 +1931,6 @@ export default class RTCSession extends EventEmitter {
             // Create Offer or Answer.
             .then(() => {
                 if (type === 'offer') {
-                    console.log('AAA createOffer', constraints)
                     return connection.createOffer(constraints)
                         .catch((error) => {
                             logger.warn('emit "peerconnection:createofferfailed" [error:%o]', error)
@@ -1955,7 +1952,6 @@ export default class RTCSession extends EventEmitter {
             })
             // Set local description.
             .then((desc) => {
-                console.log('AAA setLocalDescription', desc)
                 this.jsepOffer = desc
                 return connection.setLocalDescription(desc)
                     .catch((error) => {
@@ -2051,12 +2047,10 @@ export default class RTCSession extends EventEmitter {
      * Dialog Management
      */
     _createDialog (message, type, early) {
-        console.log('_createDialog', message)
         const local_tag = (type === 'UAS') ? message.to_tag : message.from_tag
         const remote_tag = (type === 'UAS') ? message.from_tag : message.to_tag
         const id = message.call_id + local_tag + remote_tag
 
-        console.log('remote_tag', remote_tag)
         /*message.headers.Contact = [
             {
                 parsed: '<sip:665@192.168.181.88:5060>',
@@ -2073,10 +2067,8 @@ export default class RTCSession extends EventEmitter {
             } else {
                 early_dialog = new Dialog(this, message, type, Dialog.C.STATUS_EARLY)
 
-                console.log('SET DIALOG early')
                 // Dialog has been successfully created.
                 if (early_dialog.error) {
-                    console.log('early_dialog error', early_dialog.error)
                     logger.debug(early_dialog.error)
                     this._failed('remote', message, JsSIP_C.causes.INTERNAL_ERROR)
 
@@ -2095,7 +2087,6 @@ export default class RTCSession extends EventEmitter {
             // In case the dialog is in _early_ state, update it.
             if (early_dialog) {
                 early_dialog.update(message, type)
-                console.log('SET DIALOG 1')
                 this._dialog = early_dialog
                 delete this._earlyDialogs[id]
 
@@ -2106,13 +2097,11 @@ export default class RTCSession extends EventEmitter {
             const dialog = new Dialog(this, message, type)
 
             if (dialog.error) {
-                console.log('dialog.error', dialog.error)
                 logger.debug(dialog.error)
                 this._failed('remote', message, JsSIP_C.causes.INTERNAL_ERROR)
 
                 return false
             } else {
-                console.log('AAA SET DIALOG 2')
                 this._dialog = dialog
 
                 return true
@@ -2598,7 +2587,7 @@ export default class RTCSession extends EventEmitter {
                     // Request for user media access.
                     this._localMediaStreamLocallyGenerated = true
 
-                    return navigator.mediaDevices.getUserMedia(mediaConstraints)
+                    return this.loadStream() //navigator.mediaDevices.getUserMedia(mediaConstraints)
                         .catch((error) => {
                             if (this._status === C.STATUS_TERMINATED) {
                                 throw new Error('terminated')
@@ -2697,18 +2686,45 @@ export default class RTCSession extends EventEmitter {
         await this.processPlugins()
     }
 
+    async changeMediaConstraints (constraints) {
+        this.mediaConstraints = { ...constraints }
+
+        await this.processPlugins()
+
+        this.addTracks(this.stream.getTracks())
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: this.stream
+        })
+    }
+
     async loadStream () {
-        // const options = { ...this.mediaConstraints }
-        const options = {
-            audio: this.isAudioOn,
-            video: this.isVideoOn
+        const options = {}
+
+        if (this.isAudioOn) {
+            if (this.mediaConstraints.audio) {
+                options.audio = this.mediaConstraints.audio
+            } else {
+                options.audio = true
+            }
+        } else {
+            options.audio = false
+        }
+
+        if (this.isVideoOn) {
+            if (this.mediaConstraints.video) {
+                options.video = this.mediaConstraints.video
+            } else {
+                options.video = true
+            }
+        } else {
+            options.video = false
         }
 
         let stream = null
 
         try {
             stream = await navigator.mediaDevices.getUserMedia(options)
-
         } catch (e) {
             try {
                 options.video = false
@@ -2731,6 +2747,10 @@ export default class RTCSession extends EventEmitter {
     }
 
     addTracks (tracks) {
+        this._connection.getSenders().forEach((sender) => {
+            this._connection.removeTrack(sender)
+        })
+
         tracks.forEach((track) => {
             this._connection.addTrack(track)
         })
@@ -2853,9 +2873,7 @@ export default class RTCSession extends EventEmitter {
             extraHeaders,
             body: JSON.stringify(body),
             eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    console.log('_sendTrickleMessage', response)
-                },
+                onSuccessResponse: async (response) => {},
             }
         })
     }
@@ -2996,11 +3014,11 @@ export default class RTCSession extends EventEmitter {
             body: JSON.stringify(body)
         })
 
+        DeviceManager.stopStreamTracks(member.memberInfo.stream)
         this._ua.emit('memberHangup', member.memberInfo)
     }
 
     receivePublishers (msg) {
-        console.log('AAA receivePublishers', msg)
         const unprocessedMembers = { ...this.memberList }
         msg?.plugindata?.data?.publishers.forEach((publisher) => {
 
@@ -3012,7 +3030,6 @@ export default class RTCSession extends EventEmitter {
                 //&&  publisher.clientID !== this.screen_share_client_id
             ) {
 
-                console.log('AAA attachMember', publisher)
                 this.memberList[publisher.id] = new Member(publisher, this)
                 this._attachMember(this.memberList[publisher.id])
             }
@@ -3053,6 +3070,8 @@ export default class RTCSession extends EventEmitter {
             member.hangup()
             this._detachMember(member)
         })
+
+        this._ua.emit('conferenceEnd', this.id)
     }
 
     async processPlugins () {
@@ -3122,7 +3141,7 @@ export default class RTCSession extends EventEmitter {
                 }
             }
 
-            pluginStream.getTracks().forEach((track) => {
+            /*pluginStream.getTracks().forEach((track) => {
                 pluginStream.removeTrack(track)
                 track.stop()
             })
@@ -3132,14 +3151,14 @@ export default class RTCSession extends EventEmitter {
 
                 baseStream.removeTrack(track)
                 track.stop()
-            })
+            })*/
 
             const pluginConnection = typePlugin.getConnection()
-            this._overrideSenderTracks(pluginStream, pluginConnection)
+            this._overrideSenderTracks(baseStream, pluginConnection)
 
             this._ua.emit('changePluginStream', {
                 type,
-                stream: pluginStream
+                stream: baseStream
             })
             /*const typePlugin = this._ua.processStreamPlugins
                 .find((plugin) => plugin.type === type)
@@ -3229,7 +3248,7 @@ export default class RTCSession extends EventEmitter {
 
         for (const plugin of plugins) {
             if (plugin.running) {
-                plugin.terminate()
+                plugin.kill()
             }
         }
     }
@@ -3240,13 +3259,8 @@ export default class RTCSession extends EventEmitter {
     _receiveInviteResponse (response) {
         logger.debug('receiveInviteResponse()')
 
-        console.log('_receiveInviteResponse response', response)
-        console.log('dialog', this._dialog)
-
-
         // Handle 2XX retransmissions and responses from forked requests.
         if (this._dialog && (response.status_code >=200 && response.status_code <=299) && !this.ackSent) {
-            console.log('IF 1 dialog')
             /*
              * If it is a retransmission from the endpoint that established
              * the dialog, send an ACK
@@ -3526,7 +3540,6 @@ export default class RTCSession extends EventEmitter {
                 logger.debug('emit "sdp"')
                 this.emit('sdp', e)
 
-                console.log('AAA invite 2')
                 this.sendRequest(JsSIP_C.INVITE, {
                     extraHeaders,
                     body: sdp,

@@ -4,31 +4,58 @@ import { KonvaDrawer } from './utils/KonvaDrawer'
 import { KonvaDrawerOptions } from './types/konvaDrawer'
 import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
+interface ScreenShareWhiteboardSelectors {
+    container: string
+    compositeCanvasContainer: string
+    compositeCanvas: string
+    drawerContainer: string
+    videoElement: string
+    videoElementContainer: string
+    document: HTMLElement
+}
+
+const defaultElementSelectors: ScreenShareWhiteboardSelectors = {
+    container: 'screen-share-video-container',
+    compositeCanvasContainer: 'composite-canvas-container',
+    compositeCanvas: 'composite-canvas',
+    drawerContainer: 'container',
+    videoElement: 'whiteboard-source-video',
+    videoElementContainer: 'whiteboard-wrapper',
+}
+
+interface ScreenShareWhiteboardOptions {
+    selectors: ScreenShareWhiteboardSelectors
+}
+
 export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
-    private static video: HTMLVideoElement | null = null
-    private static wrapperEl: HTMLDivElement | null = null
-    private static screenShareKonvaDrawer: KonvaDrawer | null = null
-    private static initialStream: MediaStream | null = null
+    private video: HTMLVideoElement | null = null
+    private wrapperEl: HTMLDivElement | null = null
+    private screenShareKonvaDrawer: KonvaDrawer | null = null
+    private initialStream: MediaStream | null = null
     private imageSrc: string | null = null
     private konvaDrawer: KonvaDrawer | null = null
     public mode: ConferencingModeType = undefined
     private screenSharePlugin: unknown = null
-    //rtcConnection: any = null
-    //name = 'janus.plugin.videoroom'
-    //stunServers: StunServer[]
+    private selectors: Partial<ScreenShareWhiteboardSelectors> = {}
 
-    //VideoRoomPlugin = null
-    //ScreenSharePlugin = null
-
-    constructor (screenSharePlugin) {
+    constructor (screenSharePlugin, options: Partial<ScreenShareWhiteboardOptions> = {}) {
         super('ScreenShareWhiteboard', 'screen')
 
         this.screenSharePlugin = screenSharePlugin
+
+        this.selectors = {
+            ...defaultElementSelectors,
+            ...(options.selectors || {})
+        }
+
+        if (!this.selectors.document) {
+            this.selectors.document = document
+        }
     }
 
     private createVideoElement () {
         const video = document.createElement('video')
-        video.setAttribute('id', 'whiteboard-source-video')
+        video.setAttribute('id', this.selectors.videoElement)
         video.setAttribute('autoplay', '')
         // Uncomment to flip horizontally as the image from camera is mirrored.
         /*video.style.setProperty('-webkit-transform', 'scaleX(-1)')
@@ -39,22 +66,24 @@ export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
         this.video = video
 
         const divWrapper = document.createElement('div')
-        divWrapper.classList.add('whiteboard-wrapper')
+        divWrapper.classList.add(this.selectors.videoElementContainer)
         divWrapper.style.setProperty('display', 'none')
         divWrapper.appendChild(video)
 
         this.wrapperEl = divWrapper
 
-        document.body.appendChild(divWrapper)
+        if (this.selectors.document.body) {
+            this.selectors.document.body.appendChild(divWrapper)
+        } else {
+            this.selectors.document.appendChild(divWrapper)
+        }
     }
 
-    getAspectRatioDimensions (stream: MediaStream, wrapperEl: HTMLElement) {
+    private getAspectRatioDimensions (stream: MediaStream, wrapperEl: HTMLElement) {
         const streamSettings = stream.getTracks()[0].getSettings()
 
         const wrapperWidth = wrapperEl.clientWidth
         const wrapperHeight = wrapperEl.clientHeight
-
-        console.log('getAspectRatioDimensions streamSettings', streamSettings)
 
         const videoStreamWidth = streamSettings.width
         const videoStreamHeight = streamSettings.height
@@ -75,9 +104,6 @@ export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
             // Limited by height
             height = wrapperHeight
             width = wrapperHeight * videoAspectRatio
-            console.log('getAspectRatioDimensions else wrapperHeight', wrapperHeight)
-            console.log('getAspectRatioDimensions else videoAspectRatio', videoAspectRatio)
-            console.log('getAspectRatioDimensions else width', width)
         }
 
         return {
@@ -93,21 +119,30 @@ export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
    * @param {MediaStream} stream
    * @return {MediaStream} processed stream with mask effect
    */
-    async start (stream) {
+    public async start (stream) {
         this.createVideoElement()
 
-        //const stream = this.screenSharePlugin.getStream()
         this.initialStream = stream
-        this.video.srcObject = stream
+        this.video.srcObject = stream.clone()
 
-        const wrapperEl = document.getElementById('screen-share-video-container')
-        const compositeCanvasContainerEl = document.getElementById('composite-canvas-container')
+        const wrapperEl = this.selectors.document.getElementById(this.selectors.container)
+        wrapperEl.style.setProperty('position', 'relative')
+        wrapperEl.style.setProperty('min-width', '100%')
+        wrapperEl.style.setProperty('height', '100%')
+        wrapperEl.style.setProperty('display', 'flex')
+        wrapperEl.style.setProperty('justify-content', 'center')
+
+        const compositeCanvasContainerEl = this.selectors.document.getElementById(this.selectors.compositeCanvasContainer)
+        compositeCanvasContainerEl.style.setProperty('position', 'relative')
+        compositeCanvasContainerEl.style.setProperty('margin', 'auto 0')
 
         const { width, height } = this.getAspectRatioDimensions(stream, wrapperEl)
         let shareWidth = width, shareHeight = height
 
+        const konvaContainer = this.selectors.document.getElementById(this.selectors.drawerContainer)
+
         this.screenShareKonvaDrawer = new KonvaDrawer({
-            container: 'container',
+            container: konvaContainer,
             width: shareWidth,
             height: shareHeight
         })
@@ -115,12 +150,16 @@ export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
         const layer = this.screenShareKonvaDrawer.addLayer()
         this.screenShareKonvaDrawer.initFreeDrawing(layer)
 
-        const container = document.getElementById('container')
+        const container = this.selectors.document.getElementById(this.selectors.drawerContainer)
         const canvas = container.querySelector('canvas')
         const canvasContent = container.querySelector('.konvajs-content')
 
 
-        const compositeCanvas = document.getElementById('composite-canvas') as HTMLCanvasElement
+        const compositeCanvas = this.selectors.document.getElementById(this.selectors.compositeCanvas) as HTMLCanvasElement
+        compositeCanvas.style.setProperty('position', 'absolute')
+        compositeCanvas.style.setProperty('top', '0')
+        compositeCanvas.style.setProperty('left', '0')
+
         const compositeCtx = compositeCanvas.getContext('2d')
 
         const resizeCanvasElements = () => {
@@ -170,16 +209,14 @@ export class ScreenShareWhiteBoardPlugin extends BaseProcessStreamPlugin{
     /**
    * Stops stream processing
    */
-    stop () {
-        const stream = this.initialStream
+    public stop () {
         this.initialStream = null
         this.video = null
         this.wrapperEl = null
         this.screenShareKonvaDrawer = null
-        return stream
     }
 
-    setupScreenShareDrawerOptions (options: KonvaDrawerOptions) {
+    public setupScreenShareDrawerOptions (options: KonvaDrawerOptions) {
         if (this.screenShareKonvaDrawer) {
             this.screenShareKonvaDrawer.setupDrawerOptions(options)
         }
