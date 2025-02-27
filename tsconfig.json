@@ -12,8 +12,9 @@
     "outDir": "./dist",
     "rootDir": ".",
     "baseUrl": ".",
+    "lib": ["ES2020", "DOM"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"]
     }
   },
   "include": [

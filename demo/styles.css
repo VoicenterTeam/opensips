@@ -1,20 +1,20 @@
-.example {
-    .hidden {
+
+    .example .hidden {
         display: none;
     }
-    .login-form {
+    .example .login-form {
         display: flex;
         flex-direction: column;
         align-items: center;
     }
-    .volume-wrapper {
+    .example .volume-wrapper {
         margin: 0 10px;
     }
 
-    select::-ms-expand {
+    .example select::-ms-expand {
         display: none;
     }
-    select {
+    .example select {
         display: inline-block;
         box-sizing: border-box;
         margin-top: 5px;
@@ -32,7 +32,7 @@
         background-size: 5px 5px, 5px 5px;
     }
 
-    button {
+    .example button {
         background-color: #A5C544;
         border: none;
         border-radius: 3px;
@@ -46,12 +46,12 @@
         cursor: pointer;
     }
 
-    button:disabled,
-    button[disabled]{
+    .example button:disabled,
+    .example button[disabled]{
         background-color: #cccccc;
     }
 
-    input[type=text], input[type=number] {
+    .example input[type=text], .example input[type=number] {
         padding: 10px 20px;
         margin: 8px 0;
         display: inline-block;
@@ -60,18 +60,18 @@
         box-sizing: border-box;
     }
 
-    .login-form input:not([type='checkbox']) {
+    .example .login-form input:not([type='checkbox']) {
         display: block;
     }
 
-    .call-quick-actions {
+    .example .call-quick-actions {
         width: 300px;
         display: flex;
         justify-content: space-between;
         margin: 20px 0;
     }
 
-    .history-wrapper {
+    .example .history-wrapper {
         display: flex;
         flex-direction: column;
         width: 700px;
@@ -80,18 +80,18 @@
         max-height: 300px;
     }
 
-    .history-message {
+    .example .history-message {
         margin: 10px 20px;
     }
 
-    .message-right {
+    .example .message-right {
         display: flex;
         justify-content: flex-end;
         background-color: #f1f8dc;
         border-top: 1px solid #fff;
     }
 
-    .message-left {
+    .example .message-left {
         display: flex;
         justify-content: flex-start;
         background-color: #fdfdfd;
@@ -99,14 +99,14 @@
     }
 
     /* Style the tab */
-    .navigation-tab {
+    .example .navigation-tab {
         overflow: hidden;
         border: 1px solid #ccc;
         background-color: #f1f1f1;
     }
 
     /* Style the buttons that are used to open the tab content */
-    .navigation-tab button {
+    .example .navigation-tab button {
         background-color: inherit;
         float: left;
         border: none;
@@ -117,20 +117,47 @@
     }
 
     /* Change background color of buttons on hover */
-    .navigation-tab button:hover {
+    .example .navigation-tab button:hover {
         background-color: #ddd;
     }
 
     /* Create an active/current tablink class */
-    .navigation-tab button.active {
+    .example .navigation-tab button.active {
         background-color: #ccc;
     }
 
     /* Style the tab content */
-    .tabcontent {
+    .example .tabcontent {
         display: none;
         padding: 6px 12px;
         border: 1px solid #ccc;
         border-top: none;
     }
-}
+
+    /*.example .main-video {
+        min-width: 100%;
+        height: 100%;
+    }
+
+    .example #screen-share-video-container {
+        position: relative;
+    }*/
+    .example #container canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    /*.example #composite-canvas-container {
+        margin: auto 0;
+    }
+
+    .example #composite-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }*/
+
+    .example #container {
+        z-index: 11;
+    }

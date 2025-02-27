@@ -27,7 +27,6 @@ import RTCSession_ReferNotifier from 'jssip/lib/RTCSession/ReferNotifier'
 //const RTCSession_ReferSubscriber = require('./RTCSession/ReferSubscriber')
 import RTCSession_ReferSubscriber from 'jssip/lib/RTCSession/ReferSubscriber'
 import URI from 'jssip/lib/URI'
-
 import P_TYPES from '../../enum/p.types'
 
 const logger = new Logger('JanusSession')
@@ -66,8 +65,6 @@ export default class RTCSession extends EventEmitter {
         logger.debug('new')
 
         super()
-
-        console.log('constructor call')
 
         this._id = null
         this._ua = ua
@@ -161,8 +158,8 @@ export default class RTCSession extends EventEmitter {
             username: 'turn2es21e'
         } ]
 
-        const opaqueRandomString = uuidv4().replace(/-/g, '').slice(0, 12)
-        this.opaque_id = `videoroomtest-${opaqueRandomString}`
+        this.opaque_id = this.generateOpaqueId()
+        this.screen_share_opaque_id = this.generateOpaqueId()
 
         // Custom session empty object for high level use.
         this._data = {}
@@ -170,6 +167,7 @@ export default class RTCSession extends EventEmitter {
         // Media state
         this.isAudioOn = true
         this.isVideoOn = true
+        this.mediaConstraints = {}
     }
 
     /**
@@ -282,6 +280,11 @@ export default class RTCSession extends EventEmitter {
         return `PTYPE: ${type}`
     }
 
+    generateOpaqueId () {
+        const opaqueRandomString = uuidv4().replace(/-/g, '').slice(0, 12)
+        return `videoroomtest-${opaqueRandomString}`
+    }
+
     connect (target, displayName, options = {}, initCallback) {
         logger.debug('connect()')
 
@@ -294,6 +297,9 @@ export default class RTCSession extends EventEmitter {
             audio: true,
             video: true
         })
+
+        this.mediaConstraints = { ...mediaConstraints }
+
         const mediaStream = options.mediaStream || null
         const pcConfig = Utils.cloneObject(options.pcConfig, { iceServers: [] })
         const rtcConstraints = options.rtcConstraints || null
@@ -320,10 +326,9 @@ export default class RTCSession extends EventEmitter {
         }
 
         // Check target validity.
-        console.log('target', target)
         target = this._ua.normalizeTarget(target)
-        console.log('normalizeTarget target', target)
         this.room_id = target.user
+        this.target = target
 
         if (!target) {
             throw new TypeError(`Invalid target: ${originalTarget}`)
@@ -396,8 +401,6 @@ export default class RTCSession extends EventEmitter {
         this._local_identity = this._request.from
         this._remote_identity = this._request.to
 
-        console.log('this._remote_identity', this._remote_identity)
-
         // User explicitly provided a newRTCSession callback for this session.
         if (initCallback) {
             initCallback(this)
@@ -406,6 +409,72 @@ export default class RTCSession extends EventEmitter {
         this._newJanusSession('local', this._request)
 
         this._sendInitialRequest(mediaConstraints, rtcOfferConstraints, mediaStream)
+    }
+
+    /*async connectBlur () {
+        const options = {
+            audio: this.isAudioOn,
+            video: this.isVideoOn
+        }
+
+        this.streamMask = new StreamMaskPlugin({
+            effect: 'backgroundImageEffect',
+            mediaConstraints: options,
+            base64Image: base64Image ? base64Image : null
+        })
+        //screenSharePlugin.connect(options)
+
+        //const { stream } = await this.loadStream()
+
+        console.log('options 1', options)
+
+        const stream = await navigator.mediaDevices.getUserMedia(options)
+
+        console.log('options 2', options)
+
+        //bokehEffect
+        //backgroundImageEffect
+        const canvasStream = await this.streamMask.start(stream)
+
+        this._overrideSenderTracks(canvasStream)
+
+        this._ua.emit('startBlur')
+
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: canvasStream
+        })
+    }*/
+
+    /*stopBlur () {
+        const originalStream = this.streamMask.stop()
+        this._overrideSenderTracks(originalStream)
+
+        this._ua.emit('stopBlur')
+
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: originalStream
+        })
+    }*/
+
+    _overrideSenderTracks (stream, connection) {
+        stream.getTracks().forEach(track => {
+            const senders = connection.getSenders()
+            senders.forEach(async (sender) => {
+                if (sender.track.kind !== track.kind) {
+                    return
+                }
+
+                if (track.kind === 'audio' && !this.isAudioOn) {
+                    track.enabled = false
+                }
+                if (track.kind === 'video' && !this.isVideoOn) {
+                    track.enabled = false
+                }
+                await sender.replaceTrack(track)
+            })
+        })
     }
 
     init_incoming (request, initCallback) {
@@ -634,7 +703,7 @@ export default class RTCSession extends EventEmitter {
                     // Audio and/or video requested, prompt getUserMedia.
                     this._localMediaStreamLocallyGenerated = true
 
-                    return navigator.mediaDevices.getUserMedia(mediaConstraints)
+                    return this.loadStream()//navigator.mediaDevices.getUserMedia(mediaConstraints)
                         .catch((error) => {
                             if (this._status === C.STATUS_TERMINATED) {
                                 throw new Error('terminated')
@@ -871,7 +940,6 @@ export default class RTCSession extends EventEmitter {
 
                     // Restore the dialog into 'this' in order to be able to send the in-dialog BYE :-).
                     this._dialog = dialog
-                    console.log('SET DIALOG terminate')
 
                     // Restore the dialog into 'ua' so the ACK can reach 'this' session.
                     this._ua.newDialog(dialog)
@@ -935,12 +1003,14 @@ export default class RTCSession extends EventEmitter {
 
     startAudio () {
         DeviceManager.toggleAudioMute(this.stream)
+        this._toggleMuteAudio(false)
         this.enableAudio(true)
         this.isAudioOn = true
     }
 
     stopAudio () {
         DeviceManager.toggleAudioMute(this.stream)
+        this._toggleMuteAudio(true)
         this.enableAudio(false)
         this.isAudioOn = false
     }
@@ -979,12 +1049,15 @@ export default class RTCSession extends EventEmitter {
 
     startVideo () {
         DeviceManager.toggleVideoMute(this.stream)
+        this._toggleMuteVideo(false)
         this.enableVideo(true)
         this.isVideoOn = true
     }
 
     stopVideo () {
         DeviceManager.toggleVideoMute(this.stream)
+        // do track.stop() instead of track.enabled = false
+        this._toggleMuteVideo(true)
         this.enableVideo(false)
         this.isVideoOn = false
     }
@@ -1871,6 +1944,7 @@ export default class RTCSession extends EventEmitter {
             })
             // Set local description.
             .then((desc) => {
+                this.jsepOffer = desc
                 return connection.setLocalDescription(desc)
                     .catch((error) => {
                         this._rtcReady = true
@@ -1965,12 +2039,10 @@ export default class RTCSession extends EventEmitter {
      * Dialog Management
      */
     _createDialog (message, type, early) {
-        console.log('_createDialog', message)
         const local_tag = (type === 'UAS') ? message.to_tag : message.from_tag
         const remote_tag = (type === 'UAS') ? message.from_tag : message.to_tag
         const id = message.call_id + local_tag + remote_tag
 
-        console.log('remote_tag', remote_tag)
         /*message.headers.Contact = [
             {
                 parsed: '<sip:665@192.168.181.88:5060>',
@@ -1987,10 +2059,8 @@ export default class RTCSession extends EventEmitter {
             } else {
                 early_dialog = new Dialog(this, message, type, Dialog.C.STATUS_EARLY)
 
-                console.log('SET DIALOG early')
                 // Dialog has been successfully created.
                 if (early_dialog.error) {
-                    console.log('early_dialog error', early_dialog.error)
                     logger.debug(early_dialog.error)
                     this._failed('remote', message, JsSIP_C.causes.INTERNAL_ERROR)
 
@@ -2009,7 +2079,6 @@ export default class RTCSession extends EventEmitter {
             // In case the dialog is in _early_ state, update it.
             if (early_dialog) {
                 early_dialog.update(message, type)
-                console.log('SET DIALOG 1')
                 this._dialog = early_dialog
                 delete this._earlyDialogs[id]
 
@@ -2020,13 +2089,11 @@ export default class RTCSession extends EventEmitter {
             const dialog = new Dialog(this, message, type)
 
             if (dialog.error) {
-                console.log('dialog.error', dialog.error)
                 logger.debug(dialog.error)
                 this._failed('remote', message, JsSIP_C.causes.INTERNAL_ERROR)
 
                 return false
             } else {
-                console.log('AAA SET DIALOG 2')
                 this._dialog = dialog
 
                 return true
@@ -2512,7 +2579,7 @@ export default class RTCSession extends EventEmitter {
                     // Request for user media access.
                     this._localMediaStreamLocallyGenerated = true
 
-                    return navigator.mediaDevices.getUserMedia(mediaConstraints)
+                    return this.loadStream() //navigator.mediaDevices.getUserMedia(mediaConstraints)
                         .catch((error) => {
                             if (this._status === C.STATUS_TERMINATED) {
                                 throw new Error('terminated')
@@ -2602,38 +2669,80 @@ export default class RTCSession extends EventEmitter {
         return sender.dtmf
     }*/
 
-    requestAudioAndVideoPermissions () {
-        return this.loadStream()
+    async requestAudioAndVideoPermissions () {
+        this.stream = await this.loadStream()
+    }
+
+    async setupMediaStream () {
+        await this.requestAudioAndVideoPermissions()
+        await this.processPlugins()
+    }
+
+    async changeMediaConstraints (constraints) {
+        this.mediaConstraints = { ...constraints }
+
+        await this.processPlugins()
+
+        this.addTracks(this.stream.getTracks())
+        this._ua.emit('changeMainVideoStream', {
+            name: this.display_name,
+            stream: this.stream
+        })
     }
 
     async loadStream () {
-        // const options = { ...this.mediaConstraints }
-        const options = {
-            audio: this.isAudioOn,
-            video: this.isVideoOn
+        const options = {}
+
+        if (this.isAudioOn) {
+            if (this.mediaConstraints.audio) {
+                options.audio = this.mediaConstraints.audio
+            } else {
+                options.audio = true
+            }
+        } else {
+            options.audio = false
         }
 
-        try {
-            this.stream = await navigator.mediaDevices.getUserMedia(options)
+        if (this.isVideoOn) {
+            if (this.mediaConstraints.video) {
+                options.video = this.mediaConstraints.video
+            } else {
+                options.video = true
+            }
+        } else {
+            options.video = false
+        }
 
+        let stream = null
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(options)
         } catch (e) {
             try {
                 options.video = false
-                this.stream = await navigator.mediaDevices.getUserMedia(options)
+                stream = await navigator.mediaDevices.getUserMedia(options)
             } catch (ex) {
                 options.audio = false
                 options.video = false
-                this.stream = await navigator.mediaDevices.getUserMedia(options)
+                stream = await navigator.mediaDevices.getUserMedia(options)
             }
         }
+
+        return stream
+
+        //this.originalStream = this.stream.clone()
         // this.trackMicrophoneVolume()
-        return {
+        /*return {
             stream: this.stream,
             options
-        }
+        }*/
     }
 
     addTracks (tracks) {
+        this._connection.getSenders().forEach((sender) => {
+            this._connection.removeTrack(sender)
+        })
+
         tracks.forEach((track) => {
             this._connection.addTrack(track)
         })
@@ -2655,8 +2764,10 @@ export default class RTCSession extends EventEmitter {
             offerToReceiveAudio: false,
             offerToReceiveVideo: false
         }
-        const jsepOffer = await this._connection.createOffer(offerOptions)
-        await this._connection.setLocalDescription(jsepOffer)
+
+        // TODO: don't create offer here as it is already created
+        //const jsepOffer = await this._connection.createOffer(offerOptions)
+        //await this._connection.setLocalDescription(jsepOffer)
 
         const candidatesArray = this._candidates.map((candidate) => ({
             janus: 'trickle',
@@ -2673,7 +2784,7 @@ export default class RTCSession extends EventEmitter {
                 filename: this.getRecordFileName(),
                 ...options
             },
-            jsep: jsepOffer,
+            jsep: this.jsepOffer,
             handle_id: this.handle_id,
             session_id: this.session_id
         }
@@ -2754,9 +2865,7 @@ export default class RTCSession extends EventEmitter {
             extraHeaders,
             body: JSON.stringify(body),
             eventHandlers: {
-                onSuccessResponse: async (response) => {
-                    console.log('_sendTrickleMessage', response)
-                },
+                onSuccessResponse: async (response) => {},
             }
         })
     }
@@ -2897,6 +3006,7 @@ export default class RTCSession extends EventEmitter {
             body: JSON.stringify(body)
         })
 
+        DeviceManager.stopStreamTracks(member.memberInfo.stream)
         this._ua.emit('memberHangup', member.memberInfo)
     }
 
@@ -2909,6 +3019,7 @@ export default class RTCSession extends EventEmitter {
                 !this.memberList[publisher.id]
                 && !this.myFeedList.includes(publisher.id)
                 &&  publisher.clientID !== this.client_id
+                //&&  publisher.clientID !== this.screen_share_client_id
             ) {
 
                 this.memberList[publisher.id] = new Member(publisher, this)
@@ -2951,6 +3062,187 @@ export default class RTCSession extends EventEmitter {
             member.hangup()
             this._detachMember(member)
         })
+
+        this._ua.emit('conferenceEnd', this.id)
+    }
+
+    async processPlugins () {
+        const plugins = this._ua.processStreamPlugins
+        let baseStream = await this.loadStream() //this.originalStream.clone()
+
+        for (const plugin of plugins) {
+            baseStream = await plugin.process(baseStream)
+        }
+
+        this.stream.getTracks().forEach((track) => {
+            this.stream.removeTrack(track)
+            track.stop()
+        })
+
+        baseStream.getTracks().forEach((track) => {
+            this.stream.addTrack(track)
+        })
+
+        //this.stream = baseStream
+    }
+
+    async resyncPlugins (type) {
+        const plugins = this._ua.processStreamPlugins.filter((plugin) => plugin.type === type)
+
+        for (const plugin of plugins) {
+            if (plugin.running) {
+                plugin.terminate()
+            }
+        }
+
+        if (type === 'video') {
+            let baseStream = await this.loadStream()
+
+            for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }
+
+            this.stream.getTracks().forEach((track) => {
+                this.stream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                this.stream.addTrack(track)
+            })
+
+            this._overrideSenderTracks(this.stream, this._connection)
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: this.stream
+            })
+        } else {
+            const typePlugin = this._ua.newStreamPlugins //newStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const pluginStream = typePlugin.getStream()
+
+            let baseStream = pluginStream.clone()
+
+            for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }
+
+            /*pluginStream.getTracks().forEach((track) => {
+                pluginStream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                pluginStream.addTrack(track.clone())
+
+                baseStream.removeTrack(track)
+                track.stop()
+            })*/
+
+            const pluginConnection = typePlugin.getConnection()
+            this._overrideSenderTracks(baseStream, pluginConnection)
+
+            this._ua.emit('changePluginStream', {
+                type,
+                stream: baseStream
+            })
+            /*const typePlugin = this._ua.processStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const baseStream = await typePlugin.start()*/
+
+            /*const typePlugin = this._ua.newStreamPlugins //newStreamPlugins
+                .find((plugin) => plugin.name === 'ScreenSharePlugin')
+
+            console.log('RRR screen share plugin', typePlugin)
+
+            const pluginStream = typePlugin.getStream()
+
+            console.log('this._ua.processStreamPlugins', this._ua.processStreamPlugins)
+            const typePlugin2 = this._ua.processStreamPlugins //newStreamPlugins
+                .find((plugin) => plugin.name === 'ScreenShareWhiteboardPlugin')
+
+            const baseStream = await typePlugin2.start()
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: baseStream
+            })*/
+
+            /*console.log('RRR screen share plugin stream', pluginStream)
+
+            //let baseStream = pluginStream.clone()
+
+            const sshwPlugin = this._ua.processStreamPlugins
+                .find((plugin) => plugin.type === type)
+
+            const baseStream = await sshwPlugin.start()
+
+            console.log('RRR sshw stream', baseStream)
+
+            /!*for (const plugin of plugins) {
+                if (plugin.running) {
+                    baseStream = await plugin.start(baseStream)
+                }
+            }*!/
+
+            pluginStream.getTracks().forEach((track) => {
+                pluginStream.removeTrack(track)
+                track.stop()
+            })
+
+            baseStream.getTracks().forEach((track) => {
+                pluginStream.addTrack(track.clone())
+
+                baseStream.removeTrack(track)
+                track.stop()
+            })
+
+            const pluginConnection = typePlugin.getConnection()
+            console.log('RRR _overrideSenderTracks', pluginStream.getTracks())
+            this._overrideSenderTracks(pluginStream, pluginConnection)
+
+            /!*this._ua.emit('changePluginStream', {
+                type,
+                stream: pluginStream
+            })*!/
+
+            this._ua.emit('changeMainVideoStream', {
+                name: this.display_name,
+                stream: pluginStream
+            })*/
+        }
+
+        /*else if (type === 'screen') {
+            const screenSharePlugin = this._ua.newStreamPlugins
+                .filter((plugin) => plugin.name === 'ScreenSharePlugin')
+
+            if (!screenSharePlugin) {
+                throw new Error('ScreenSharePlugin is not found')
+            }
+
+            /!*for (const plugin of plugins) {
+                if (plugin.running) {
+                    //baseStream = await plugin.start(baseStream)
+                }
+            }*!/
+        }*/
+    }
+
+    stopProcessPlugins (type) {
+        const plugins = this._ua.processStreamPlugins.filter((plugin) => plugin.type === type)
+
+        for (const plugin of plugins) {
+            if (plugin.running) {
+                plugin.kill()
+            }
+        }
     }
 
     /**
@@ -2959,13 +3251,8 @@ export default class RTCSession extends EventEmitter {
     _receiveInviteResponse (response) {
         logger.debug('receiveInviteResponse()')
 
-        console.log('_receiveInviteResponse response', response)
-        console.log('dialog', this._dialog)
-
-
         // Handle 2XX retransmissions and responses from forked requests.
         if (this._dialog && (response.status_code >=200 && response.status_code <=299) && !this.ackSent) {
-            console.log('IF 1 dialog')
             /*
              * If it is a retransmission from the endpoint that established
              * the dialog, send an ACK
@@ -2999,7 +3286,7 @@ export default class RTCSession extends EventEmitter {
             const parsedBody = JSON.parse(response.body)
             //console.log('parsedBody', parsedBody)
 
-            this.requestAudioAndVideoPermissions().then(() => {
+            this.setupMediaStream().then(() => {
                 this.session_id = parsedBody.session_id
                 this.handle_id = parsedBody.data.id
                 this.client_id = uuidv4()
@@ -3030,6 +3317,11 @@ export default class RTCSession extends EventEmitter {
                                 if (response.body) {
                                     try {
                                         const bodyParsed = JSON.parse(response.body) || {}
+
+                                        if (bodyParsed.plugindata?.data?.videoroom === 'joined') {
+                                            this.myFeedList.push(bodyParsed.plugindata.data.id)
+                                        }
+
                                         if (bodyParsed.plugindata?.data?.publishers){
                                             this.receivePublishers(bodyParsed)
                                         }

@@ -353,6 +353,7 @@ export class AudioModule {
         if (!validation_regex.test(value)) {
             throw new Error('Not allowed character in DTMF input')
         }
+
         const call = this.extendedCalls[callId]
         call.sendDTMF(value)
     }
@@ -384,6 +385,7 @@ export class AudioModule {
 
         const holdPromise = new Promise<void>((resolve) => {
             const resolveHold = () => {
+                call.putOnHoldTimestamp = toHold ? Date.now() : undefined
                 resolve()
             }
 

@@ -44,7 +44,12 @@ export type changeCallTimeListener = (event: { [key: string]: ITimeData }) => vo
 export type changeCallMetricsListener = (event: { [key: string]: any }) => void
 export type changeCallVolumeListener = (event: ChangeVolumeEventType) => void
 export type conferenceStartListener = () => void
+export type conferenceEndListener = (sessionId) => void
 export type changeMainVideoStreamListener = (event: { name: string, event: MediaStream }) => void
+export type startScreenShareListener = (event: MediaStream) => void
+export type stopScreenShareListener = () => void
+export type startBlurListener = () => void
+export type stopBlurListener = () => void
 export type memberJoinListener = (event: object) => void
 export type memberHangupListener = (event: object) => void
 export type changeAudioStateListener = (state: boolean) => void
@@ -79,7 +84,11 @@ export interface OpenSIPSEventMap extends UAEventMap {
     newMSRPSession: MSRPSessionListener
     // JANUS
     conferenceStart: conferenceStartListener
-    changeMainVideoStream: changeMainVideoStreamListener
+    conferenceEnd: conferenceEndListener
+    startScreenShare: startScreenShareListener
+    stopScreenShare: stopScreenShareListener
+    startBlur: startBlurListener
+    stopBlur: stopBlurListener
     memberJoin: memberJoinListener
     memberHangup: memberHangupListener
     changeAudioState: changeAudioStateListener

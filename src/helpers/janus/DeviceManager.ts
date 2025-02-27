@@ -1,7 +1,6 @@
 class DeviceManager {
     static canGetMediaDevices () {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-            console.log('enumerateDevices() not supported.')
             return false
         }
         return true
@@ -104,13 +103,9 @@ class DeviceManager {
             return
         }
 
-        console.log('changeAudioOutput element', element)
-        console.log('changeAudioOutput deviceId', deviceId)
-
         if (typeof element.sinkId !== 'undefined') {
             try {
                 await element.setSinkId(deviceId)
-                console.log(`Success, audio output device attached: ${deviceId}`)
             } catch (error) {
                 let errorMessage = error
                 if (error.name === 'SecurityError') {

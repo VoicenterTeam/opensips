@@ -26,7 +26,8 @@ const CALL_KEYS_TO_INCLUDE: Array<ICallKey> = [
     'isOnHold',
     //'originalStream',
     'localMuted',
-    'autoAnswer'
+    'autoAnswer',
+    'putOnHoldTimestamp'
 ]
 type IMessageKey = keyof IMessage
 const MESSAGE_KEYS_TO_INCLUDE: Array<IMessageKey> = [

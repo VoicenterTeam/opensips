@@ -38,6 +38,12 @@ import {
     IOpenSIPSJSOptions,
     TriggerListenerOptions, CustomLoggerType, Modules, AudioModuleName
 } from '@/types/rtc'
+import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
+import { ScreenSharePlugin } from '@/lib/janus/ScreenSharePlugin'
+import { ScreenShareWhiteBoardPlugin } from '@/lib/janus/ScreenShareWhiteBoardPlugin'
+import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
+import { WhiteBoardPlugin } from '@/lib/janus/WhiteBoardPlugin'
 
 import {
     IMessage,
@@ -57,6 +63,9 @@ import { AudioModule } from '@/modules/audio'
 import { VideoModule } from '@/modules/video'
 import { MSRPModule } from '@/modules/msrp'
 import { MODULES } from '@/enum/modules'
+
+import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
+import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
 
 const CALL_STATUS_UNANSWERED = 0
 
@@ -132,10 +141,14 @@ class OpenSIPSJS extends UA {
     //private isCallAddingInProgress: string | undefined
     private isMSRPInitializingValue: boolean | undefined
     private isReconnecting = false
+    private activeConnection = false
 
     public audio: AudioModule = null
     public msrp: MSRPModule = null
     public video: VideoModule = null
+
+    /*private newStreamPlugins: Array<BaseNewStreamPlugin> = []
+    private processStreamPlugins: Array<BaseProcessStreamPlugin> = []*/
 
     private listenersList: {
         [key: string]: Array<(call: any, event: ListenerEventType | undefined) => void>
@@ -181,6 +194,38 @@ class OpenSIPSJS extends UA {
         return this.options.sipDomain
     }
 
+    public use (plugin: BaseNewStreamPlugin | BaseProcessStreamPlugin) {
+        // Cannot use `use` after begin
+        //const session = Object.values(this._janus_sessions)[0]
+        if (
+            this.newStreamPlugins.find((el) => el.name === plugin.name) ||
+            this.processStreamPlugins.find((el) => el.name === plugin.name)
+        ) {
+            throw new Error(`Plugin with name ${plugin.name} already exists`)
+        }
+
+        if (plugin instanceof BaseNewStreamPlugin) {
+            plugin.setOpensips(this)
+            //plugin.setSession(session)
+
+            this.newStreamPlugins.push(plugin)
+        } else if (plugin instanceof BaseProcessStreamPlugin) {
+            plugin.setOpensips(this)
+            //plugin.setSession(session)
+
+            this.processStreamPlugins.push(plugin)
+        } else {
+            throw new Error('Wrong plugin instance')
+        }
+
+        // Another if for audio
+    }
+
+    public getPlugin (name: string) {
+        return this.newStreamPlugins
+            .find(plugin => plugin.name === name) || this.processStreamPlugins.find(plugin => plugin.name === name)
+    }
+
     public begin () {
         if (this.isConnected()) {
             console.error('Connection is already established')
@@ -221,6 +266,7 @@ class OpenSIPSJS extends UA {
                 this.logger.log('Connected to', this.options.socketInterfaces[0])
                 this.setConnected(true)
                 this.isReconnecting = false
+                this.activeConnection = true
             }
         )
 
@@ -229,14 +275,20 @@ class OpenSIPSJS extends UA {
             () => {
                 if (this.isReconnecting) {
                     return
+                } else {
+                    this.isReconnecting = true
                 }
+
                 this.logger.log('Disconnected from', this.options.socketInterfaces[0])
                 this.logger.log('Reconnecting to', this.options.socketInterfaces[0])
-                this.isReconnecting = true
+
                 this.stop()
                 this.setInitialized(false)
                 this.setConnected(false)
-                setTimeout(this.start.bind(this), 5000)
+
+                if (this.activeConnection) {
+                    setTimeout(this.start.bind(this), 5000)
+                }
             }
         )
 
@@ -244,6 +296,11 @@ class OpenSIPSJS extends UA {
         this.start()
 
         return this
+    }
+
+    disconnect () {
+        this.activeConnection = false
+        this.stop()
     }
 
     /*public get sipOptions () {
@@ -1435,3 +1492,11 @@ class OpenSIPSJS extends UA {
 }
 
 export default OpenSIPSJS
+export {
+    BaseProcessStreamPlugin,
+    BaseNewStreamPlugin,
+    ScreenSharePlugin,
+    ScreenShareWhiteBoardPlugin,
+    StreamMaskPlugin,
+    WhiteBoardPlugin
+}
