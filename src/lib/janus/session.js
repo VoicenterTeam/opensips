@@ -27,9 +27,6 @@ import RTCSession_ReferNotifier from 'jssip/lib/RTCSession/ReferNotifier'
 //const RTCSession_ReferSubscriber = require('./RTCSession/ReferSubscriber')
 import RTCSession_ReferSubscriber from 'jssip/lib/RTCSession/ReferSubscriber'
 import URI from 'jssip/lib/URI'
-import ScreenSharePluginOld from '@/lib/janus/ScreenSharePluginOld'
-import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
-
 import P_TYPES from '../../enum/p.types'
 
 const logger = new Logger('JanusSession')
@@ -412,11 +409,6 @@ export default class RTCSession extends EventEmitter {
         this._newJanusSession('local', this._request)
 
         this._sendInitialRequest(mediaConstraints, rtcOfferConstraints, mediaStream)
-    }
-
-    connectScreenShare (options = {}) {
-        const screenSharePlugin = new ScreenSharePluginOld(this)
-        screenSharePlugin.connect(options)
     }
 
     /*async connectBlur () {
