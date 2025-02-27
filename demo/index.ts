@@ -27,12 +27,14 @@ let audioInputDeviceId = null
 let videoInputDeviceId = null
 let audioOutputDeviceId = null
 const isWhiteboardEnabled = false
+let onHoldWhenAddCall = false
 
 /* DOM Elements */
 
 const loginToAppFormEl = document.getElementById('loginToAppForm')
 const loginPageEl = document.getElementById('loginPage')
 const webRTCPageEl = document.getElementById('webRTCPage')
+const logoutButtonEl = document.getElementById('logoutButton')
 
 const makeCallFormEl = document.getElementById('makeCallForm')
 const videoCallFormEl = document.getElementById('videoCallForm')
@@ -47,6 +49,7 @@ const DNDInputEl = document.getElementById('DNDInputEl') as HTMLInputElement
 const muteContainerEl = document.getElementById('muteContainerEl') as HTMLElement
 
 const addToCurrentRoomInputEl = document.getElementById('addToCurrentRoomInputEl') as HTMLInputElement
+const onHoldWhenAddCallInputEl = document.getElementById('onHoldWhenAddCallInputEl') as HTMLInputElement
 
 const inputLevelApplyButtonEl = document.getElementById('inputLevelApplyButton') as HTMLButtonElement
 const outputLevelApplyButtonEl = document.getElementById('outputLevelApplyButton') as HTMLButtonElement
@@ -484,6 +487,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 const target = event.target as HTMLInputElement
                 addCallToCurrentRoom = target.checked
+            })
+    }
+
+    if (onHoldWhenAddCallInputEl) {
+        onHoldWhenAddCallInputEl.addEventListener(
+            'change',
+            async (event) => {
+                event.preventDefault()
+
+                const target = event.target as HTMLInputElement
+                onHoldWhenAddCall = target.checked
             })
     }
 })
@@ -1194,7 +1208,7 @@ makeCallFormEl?.addEventListener(
             return
         }
 
-        openSIPSJS.audio?.initCall(target, addCallToCurrentRoom)
+        openSIPSJS.audio?.initCall(target, addCallToCurrentRoom, onHoldWhenAddCall)
     }
 )
 
@@ -1482,4 +1496,14 @@ roomSelectEl?.addEventListener(
         const roomId = isNaN(parsedValue) ? undefined: parsedValue
         await openSIPSJS.audio.setActiveRoom(roomId)
     })
+
+logoutButtonEl?.addEventListener(
+    'click',
+    (event) => {
+        event.preventDefault()
+        openSIPSJS.unregister()
+
+        window.location.reload()
+    }
+)
 
