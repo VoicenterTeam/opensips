@@ -91,6 +91,7 @@ export interface ICall extends RTCSessionExtended {
     localHold?: boolean
     audioTag?: StreamMediaType
     autoAnswer?: boolean
+    putOnHoldTimestamp?: number
 }
 
 export type RoomChangeEmitType = {

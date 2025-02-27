@@ -385,6 +385,7 @@ export class AudioModule {
 
         const holdPromise = new Promise<void>((resolve) => {
             const resolveHold = () => {
+                call.putOnHoldTimestamp = toHold ? Date.now() : undefined
                 resolve()
             }
 
