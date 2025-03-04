@@ -133,7 +133,7 @@ export type MSRPModuleName = typeof MODULES.MSRP
 export type Modules = AudioModuleName | VideoModuleName | MSRPModuleName
 
 type UAConfigurationExtended = UAConfiguration & {
-    overrideUserAgent: (userAgent: string) => string
+    overrideUserAgent?: (userAgent: string) => string
 }
 
 export type IOpenSIPSConfiguration = Omit<UAConfigurationExtended, 'sockets'>
