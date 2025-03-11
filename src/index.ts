@@ -38,20 +38,7 @@ import {
     IOpenSIPSJSOptions,
     TriggerListenerOptions, CustomLoggerType, Modules, AudioModuleName
 } from '@/types/rtc'
-import { BaseNewStreamPlugin } from '@/lib/janus/BaseNewStreamPlugin'
-import { BaseProcessStreamPlugin } from '@/lib/janus/BaseProcessStreamPlugin'
-import { ScreenSharePlugin } from '@/lib/janus/ScreenSharePlugin'
-import { ScreenShareWhiteBoardPlugin } from '@/lib/janus/ScreenShareWhiteBoardPlugin'
-import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
-import { WhiteBoardPlugin } from '@/lib/janus/WhiteBoardPlugin'
-
-import {
-    IMessage,
-    MSRPSessionExtended,
-    TriggerMSRPListenerOptions
-} from '@/types/msrp'
-
-import MSRPMessage from '@/lib/msrp/message'
+//import { StreamMaskPlugin } from '@/lib/janus/StreamMaskPlugin'
 import JsSIP from 'jssip/lib/JsSIP'
 
 import { METRIC_KEYS_TO_INCLUDE } from '@/enum/metric.keys.to.include'
@@ -1494,9 +1481,5 @@ class OpenSIPSJS extends UA {
 export default OpenSIPSJS
 export {
     BaseProcessStreamPlugin,
-    BaseNewStreamPlugin,
-    ScreenSharePlugin,
-    ScreenShareWhiteBoardPlugin,
-    StreamMaskPlugin,
-    WhiteBoardPlugin
+    BaseNewStreamPlugin
 }

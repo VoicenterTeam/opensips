@@ -13,7 +13,6 @@ import { CallTime } from '../src/types/timer'
 import { ScreenSharePlugin } from '../src/lib/janus/ScreenSharePlugin'
 import { ScreenShareWhiteBoardPlugin } from '../src/lib/janus/ScreenShareWhiteBoardPlugin'
 //import { StreamMaskPlugin } from '../src/lib/janus/StreamMaskPlugin'
-import { StreamMaskPlugin } from '../src/lib/janus/StreamMaskPlugin'
 import { WhiteBoardPlugin } from '../src/lib/janus/WhiteBoardPlugin'
 //import UA from 'jssip/lib/UA'
 //import JsSIP from 'jssip/lib/JsSIP'
@@ -600,13 +599,13 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
 
         const screenShareWhiteBoardPlugin = new ScreenShareWhiteBoardPlugin(screenSharePlugin)
 
-        const streamMaskPlugin = new StreamMaskPlugin({
+        /*const streamMaskPlugin = new StreamMaskPlugin({
             //effect: 'backgroundImageEffect',
             effect: 'bokehEffect',
             //base64Image: base64Image
         }, {
             immediate: false
-        })
+        })*/
 
         const whiteBoardPlugin = new WhiteBoardPlugin({
             mode: 'imageWhiteboard',
@@ -614,7 +613,7 @@ loginToAppFormEl?.addEventListener('submit', (event) => {
         })
 
         openSIPSJS.use(screenSharePlugin)
-        openSIPSJS.use(streamMaskPlugin)
+        //openSIPSJS.use(streamMaskPlugin)
         openSIPSJS.use(whiteBoardPlugin)
         openSIPSJS.use(screenShareWhiteBoardPlugin)
 
