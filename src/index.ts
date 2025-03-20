@@ -252,7 +252,7 @@ class OpenSIPSJS extends UA {
             () => {
                 this.logger.log('Connected to', this.options.socketInterfaces[0])
                 this.setConnected(true)
-                this.isReconnecting = false
+                this.setReconnecting(false)
                 this.activeConnection = true
             }
         )
@@ -263,7 +263,7 @@ class OpenSIPSJS extends UA {
                 if (this.isReconnecting) {
                     return
                 } else {
-                    this.isReconnecting = true
+                    this.setReconnecting(true)
                 }
 
                 this.logger.log('Disconnected from', this.options.socketInterfaces[0])
@@ -1294,6 +1294,11 @@ class OpenSIPSJS extends UA {
     private setConnected (value: boolean) {
         this.connected = value
         this.emit('connection', value)
+    }
+
+    private setReconnecting (value: boolean) {
+        this.isReconnecting = value
+        this.emit('reconnecting', value)
     }
 
     /*public setMuteWhenJoin (value: boolean) {
