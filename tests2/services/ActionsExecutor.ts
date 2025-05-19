@@ -21,6 +21,7 @@ import {
     PlaySoundAction,
     SendDTMFAction,
     TransferAction,
+    RequestAction,
 } from '../types/actions'
 
 import { waitMs } from '../helpers'
@@ -273,6 +274,19 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
 
         return {
             success: true
+        }
+    }
+
+    public async request (data: GetActionPayload<RequestAction>): Promise<GetActionResponse<RequestAction>> {
+        console.log(`[Scenario ${this.scenarioId}] Executing request action`, data)
+
+        const response = await this.page.request.fetch(data.url, data.options)
+
+        const responseBody = await response.json()
+
+        return {
+            success: response.ok(),
+            response: responseBody
         }
     }
 }

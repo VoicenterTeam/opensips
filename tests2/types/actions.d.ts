@@ -1,6 +1,8 @@
 /*******************************/
 /* BASE INTERFACES FOR ACTIONS */
 /*******************************/
+import { APIRequestContext } from 'playwright-core'
+
 export interface ActionWaitUntil {
     // The event to wait for
     event: ActionType
@@ -178,6 +180,17 @@ export type UnregisterAction = Action<
     UnregisterActionResponse
 >
 
+/* Request */
+interface RequestActionData {
+    url: string
+    options: Parameters<APIRequestContext['fetch']>[1]
+}
+export type RequestAction = Action<
+    'request',
+    RequestActionData,
+    any
+>
+
 /****************/
 /* Helper types */
 /****************/
@@ -199,6 +212,7 @@ export interface ActionsMap {
     sendDTMF: SendDTMFAction
     transfer: TransferAction
     unregister: UnregisterAction
+    request: RequestAction
 }
 
 export type ActionsExecutorImplements = {

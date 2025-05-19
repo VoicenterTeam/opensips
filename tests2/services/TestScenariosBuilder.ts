@@ -9,10 +9,12 @@ import {
     UnregisterAction,
     PlaySoundAction,
     GetActionData,
-    ActionsScenariosBuilderImplements
+    ActionsScenariosBuilderImplements,
+    RequestAction
 } from '../types/actions'
 
 import {
+    TestContext,
     TestScenario,
     TestScenarios,
 } from '../types/intex'
@@ -107,6 +109,13 @@ export default abstract class TestScenariosBuilder implements ActionsScenariosBu
         }
     }
 
+    public request (data: GetActionData<RequestAction>): GetActionDefinition<RequestAction> {
+        return {
+            type: 'request',
+            data
+        }
+    }
+
     protected on<E extends keyof EventsMap> (
         event: E,
         actions: readonly ActionsPerEvent<E>[]
@@ -126,13 +135,19 @@ export default abstract class TestScenariosBuilder implements ActionsScenariosBu
         }))
     }
 
+    abstract getInitialContext(): TestContext
+
     // Abstract method that must be implemented to define scenarios
     abstract init(): TestScenarios
 
     // Method to execute the scenarios
     async run (): Promise<void> {
         const scenarios = this.init()
-        const manager = new ScenarioManager(scenarios)
+        const initialContext = this.getInitialContext()
+        const manager = new ScenarioManager(
+            scenarios,
+            initialContext
+        )
         await manager.runScenarios()
     }
 }

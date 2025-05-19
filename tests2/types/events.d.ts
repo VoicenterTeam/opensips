@@ -9,18 +9,18 @@ type AllowedActions <T extends ActionType> = T
 
 // Define available events and the actions allowed for each event
 export interface EventsMap {
-    register: AllowedActions<'dial' | 'wait'>
-    dial: never[]
-    answer: AllowedActions<'hold' | 'unhold' | 'wait' | 'play_sound' | 'hangup'>
-    hold: AllowedActions<'unhold' | 'wait'>
-    unhold: AllowedActions<'hold' | 'wait'>
-    hangup: AllowedActions<'unregister'>
-    playSound: AllowedActions<'wait'>
-    sendDTMF: AllowedActions<'wait'>
-    transfer: AllowedActions<'wait'>
-    unregister: AllowedActions<'wait'>
-    ready: AllowedActions<'register' | 'wait'>
-    incoming: AllowedActions<'answer' | 'wait'>
+    register: AllowedActions<'dial' | 'wait' | 'request'>
+    dial: AllowedActions<'request'>
+    answer: AllowedActions<'hold' | 'unhold' | 'wait' | 'play_sound' | 'hangup' | 'request'>
+    hold: AllowedActions<'unhold' | 'wait' | 'request'>
+    unhold: AllowedActions<'hold' | 'wait' | 'request'>
+    hangup: AllowedActions<'unregister' | 'request'>
+    playSound: AllowedActions<'wait' | 'request'>
+    sendDTMF: AllowedActions<'wait' | 'request'>
+    transfer: AllowedActions<'wait' | 'request'>
+    unregister: AllowedActions<'wait' | 'request'>
+    ready: AllowedActions<'register' | 'wait' | 'request'>
+    incoming: AllowedActions<'answer' | 'wait' | 'request'>
     [customEvent: string]: AllowedActions<ActionType>
 }
 export type EventType = keyof EventsMap

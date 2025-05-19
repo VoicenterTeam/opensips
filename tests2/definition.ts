@@ -1,8 +1,22 @@
 import TestScenariosBuilder from './services/TestScenariosBuilder'
 import type { TestScenarios } from './types/intex'
-import path from 'path'
 
 export default class CallTestScenarios extends TestScenariosBuilder {
+    getInitialContext () {
+        return {
+            caller: {
+                sip_domain: '',
+                username: '',
+                password: '',
+            },
+            callee: {
+                sip_domain: '',
+                username: '',
+                password: ''
+            }
+        }
+    }
+
     init (): TestScenarios {
         return [
             // First scenario - caller
@@ -11,12 +25,25 @@ export default class CallTestScenarios extends TestScenariosBuilder {
                     this.wait({
                         payload: { time: 2000 }
                     }),
+                    this.request({
+                        payload: {
+                            url: 'https://jsonplaceholder.typicode.com/todos/1',
+                            options: {
+                                method: 'GET'
+                            }
+                        },
+                        customSharedEvent: 'request_completed'
+                    }),
+                ]),
+                this.on('request_completed', [
                     this.register({
                         payload: {
-
+                            sip_domain: '{{response.title}}',
+                            username: '{{caller.username}}',
+                            password: '{{caller.password}}',
                         },
-                        // waitUntil: { event: 'callee_registered' }
-                    }),
+                        customSharedEvent: 'caller_registered'
+                    })
                 ]),
                 this.on('incoming', [
                     this.answer({
@@ -32,39 +59,15 @@ export default class CallTestScenarios extends TestScenariosBuilder {
                 this.on('hangup', [
                     this.unregister({}),
                 ])
-                // this.on('caller_registered', [
-                //     this.wait({
-                //         payload: { time: 1000 }
-                //     }),
-                //     this.unregister({}),
-                //     this.wait({
-                //         payload: { time: 1000 }
-                //     }),
-                //     this.register({
-                //         payload: {
-                //         },
-                //         customSharedEvent: 'caller_registered',
-                //         // waitUntil: { event: 'callee_registered' }
-                //     }),
-                // ]),
-                // this.on('caller_registered', [
-                //     this.wait({
-                //         payload: { time: 1000 }
-                //     }),
-                //     this.dial({
-                //         payload: {
-                //             target: '36'
-                //         },
-                //         customSharedEvent: 'call_initiated'
-                //     })
-                // ])
             ),
             // Second scenario - callee
             // this.createScenario(
             //     this.on('ready', [
             //         this.register({
             //             payload: {
-
+            //                 sip_domain: '{{callee.sip_domain}}',
+            //                 username: '{{callee.username}}',
+            //                 password: '{{callee.password}}',
             //             },
             //             customSharedEvent: 'callee_registered'
             //         })

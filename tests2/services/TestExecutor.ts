@@ -1,13 +1,21 @@
 import { Browser, chromium, Page } from 'playwright'
-import PageWebSocketWorker from './PageWebSocketWorker'
+import mustache from 'mustache'
 
+import PageWebSocketWorker from './PageWebSocketWorker'
 import EventBus from './EventBus'
 import ActionsExecutor from './ActionsExecutor'
 import WindowMethodsWorker from './WindowMethodsWorker'
+import ScenarioManager from './ScenarioManager'
 
 import { waitMs } from '../helpers'
 
-import { ActionsResponseMap, GetActionDefinition, ActionType, ActionByActionType } from '../types/actions'
+import {
+    ActionsResponseMap,
+    GetActionDefinition,
+    ActionType,
+    ActionByActionType,
+    GetActionPayload
+} from '../types/actions'
 import { TestScenario } from '../types/intex'
 import { EventListener, EventListenerData, EventType } from '../types/events'
 
@@ -23,7 +31,10 @@ export default class TestExecutor {
     public page!: Page
     public browser!: Browser
 
-    constructor (private readonly scenarioId: string) {}
+    constructor (
+        private readonly scenarioId: string,
+        private readonly scenarioManager: ScenarioManager
+    ) {}
 
     private addEventListener<E extends EventType> (
         eventName: E,
@@ -63,6 +74,29 @@ export default class TestExecutor {
         )
     }
 
+    private buildPayload <T extends ActionType, Payload extends GetActionPayload<T>> (
+        actionType: T,
+        action: GetActionDefinition<ActionByActionType<T>>,
+    ): Payload {
+        const payload = action.data.payload
+        const context = this.scenarioManager.getContext()
+
+        const keys = Object.keys(payload)
+        const newPayload = {
+            ...payload
+        }
+
+        for (const key of keys) {
+            if (typeof payload[key] === 'string') {
+                newPayload[key] = mustache.render(payload[key], context)
+            } else {
+                newPayload[key] = payload[key]
+            }
+        }
+
+        return newPayload as Payload
+    }
+
     private async executeAction<T extends ActionType> (
         action: GetActionDefinition<ActionByActionType<T>>,
     ): Promise<void> {
@@ -96,6 +130,9 @@ export default class TestExecutor {
                 }, 0)
             }
         }
+        const onResult = <T extends ActionType> (result: ActionsResponseMap[T]) => {
+            this.scenarioManager.updateContext(result)
+        }
 
         try {
             // We'll handle each case separately with its own type
@@ -103,48 +140,64 @@ export default class TestExecutor {
 
             // Use a type safe approach that doesn't require explicit typing of 'result'
             if (actionType === 'register') {
-                const result = await this.actionsExecutor.register(action.data.payload)
+                const result = await this.actionsExecutor.register(this.buildPayload('register', action))
                 this.triggerLocalEventListener('register', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'dial') {
-                const result = await this.actionsExecutor.dial(action.data.payload)
+                const result = await this.actionsExecutor.dial(this.buildPayload('dial', action))
                 this.triggerLocalEventListener('dial', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'answer') {
                 const result = await this.actionsExecutor.answer()
                 this.triggerLocalEventListener('answer', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'wait') {
-                const result = await this.actionsExecutor.wait(action.data.payload)
+                const result = await this.actionsExecutor.wait(this.buildPayload('wait', action))
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'hold') {
                 const result = await this.actionsExecutor.hold()
                 this.triggerLocalEventListener('hold', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'unhold') {
                 const result = await this.actionsExecutor.unhold()
                 this.triggerLocalEventListener('unhold', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'hangup') {
                 const result = await this.actionsExecutor.hangup()
                 this.triggerLocalEventListener('hangup', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'playSound') {
-                const result = await this.actionsExecutor.playSound(action.data.payload)
+                const result = await this.actionsExecutor.playSound(this.buildPayload('playSound', action))
                 this.triggerLocalEventListener('playSound', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'sendDTMF') {
-                const result = await this.actionsExecutor.sendDTMF(action.data.payload)
+                const result = await this.actionsExecutor.sendDTMF(this.buildPayload('sendDTMF', action))
                 this.triggerLocalEventListener('sendDTMF', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'transfer') {
-                const result = await this.actionsExecutor.transfer(action.data.payload)
+                const result = await this.actionsExecutor.transfer(this.buildPayload('transfer', action))
                 this.triggerLocalEventListener('transfer', result)
                 triggerCustom(result)
+                onResult(result)
             } else if (actionType === 'unregister') {
                 const result = await this.actionsExecutor.unregister()
                 this.triggerLocalEventListener('unregister', result)
                 triggerCustom(result)
+                onResult(result)
+            } else if (actionType === 'request') {
+                const result = await this.actionsExecutor.request(this.buildPayload('request', action))
+                this.triggerLocalEventListener('request', result)
+                triggerCustom(result)
+                onResult(result)
             }
         } catch (error) {
             console.error(`[Scenario ${this.scenarioId}] Error executing action:`, error)
