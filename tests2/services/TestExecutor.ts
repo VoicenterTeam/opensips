@@ -3,17 +3,20 @@ import PageWebSocketWorker from './PageWebSocketWorker'
 
 import EventBus from './EventBus'
 import ActionsExecutor from './ActionsExecutor'
+import WindowMethodsWorker from './WindowMethodsWorker'
 
 import { waitMs } from '../helpers'
 
 import { ActionsResponseMap, GetActionDefinition, ActionType, ActionByActionType } from '../types/actions'
 import { TestScenario } from '../types/intex'
+import { EventListener, EventListenerData, EventType } from '../types/events'
 
 const SCENARIO_THAT_TRIGGERED_EVENT_KEY = 'SCENARIO_THAT_TRIGGERED_EVENT_KEY' as const
 
 export default class TestExecutor {
     private pageWebSocketWorker!: PageWebSocketWorker
     private actionsExecutor!: ActionsExecutor
+    private windowMethodsWorker!: WindowMethodsWorker
 
     private readonly eventBus = EventBus.getInstance()
 
@@ -22,22 +25,22 @@ export default class TestExecutor {
 
     constructor (private readonly scenarioId: string) {}
 
-    private addEventListener<E extends keyof ActionsResponseMap> (
+    private addEventListener<E extends EventType> (
         eventName: E,
-        listener: (name: E, data: ActionsResponseMap[E]) => void
+        listener: EventListener<E>
     ): void {
-        const wrappedListener = (name: string, data: unknown): void => {
+        const wrappedListener: EventListener<E> = (name, data): void => {
             if (name === eventName) {
-                listener(name as E, data as ActionsResponseMap[E])
+                listener(name, data)
             }
         }
 
-        this.eventBus.addEventListener(eventName, wrappedListener)
+        this.eventBus.addEventListener<E>(eventName, wrappedListener)
     }
 
-    private triggerLocalEventListener<E extends keyof ActionsResponseMap> (
+    private triggerLocalEventListener<E extends EventType> (
         eventName: E,
-        data: ActionsResponseMap[E]
+        data: EventListenerData<E>
     ): void {
         this.eventBus.triggerEvent(eventName, {
             ...data,
@@ -45,9 +48,9 @@ export default class TestExecutor {
         })
     }
 
-    private triggerSharedEventListener<E extends keyof ActionsResponseMap> (
+    private triggerSharedEventListener<E extends EventType> (
         eventName: E | string,
-        data: ActionsResponseMap[E]
+        data: EventListenerData<E>
     ): void {
         console.log(`[Scenario ${this.scenarioId}] Triggering shared event: ${eventName}`)
         this.eventBus.triggerEvent(eventName, data)
@@ -180,33 +183,17 @@ export default class TestExecutor {
             this.triggerLocalEventListener.bind(this)
         )
 
+        this.windowMethodsWorker = new WindowMethodsWorker(this.page)
+
         this.actionsExecutor = new ActionsExecutor(
             this.scenarioId,
             this.pageWebSocketWorker,
+            this.windowMethodsWorker,
             this.page,
             this.browser
         )
 
-        await this.page.addInitScript(() => {
-            const realGUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
-            const ctx = new AudioContext()
-            const dest = ctx.createMediaStreamDestination()
-
-            navigator.mediaDevices.getUserMedia = async constraints => {
-                if (constraints.audio) return dest.stream
-                return realGUM(constraints)
-            }
-
-            window.playClip = async url => {
-                const data = await fetch(url).then(r => r.arrayBuffer())
-                const buf = await ctx.decodeAudioData(data)
-                const src = ctx.createBufferSource()
-                src.buffer = buf
-                src.connect(dest)
-                src.start()
-                return new Promise<void>(res => (src.onended = res))
-            }
-        })
+        await this.windowMethodsWorker.implementPlayClipMethod()
 
         await this.page.goto('http://localhost:5173')
         await waitMs(100)
@@ -214,8 +201,23 @@ export default class TestExecutor {
     }
 
     public async executeScenario (scenario: TestScenario): Promise<void> {
-        const eventCounter: Record<keyof ActionsResponseMap, number> = {}
-        const eventHandlers: Record<keyof ActionsResponseMap, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]> = {}
+        console.log('[Scenario] Executing scenario:', scenario)
+        const eventCounter: Record<EventType, number> = {
+            register: 0,
+            dial: 0,
+            answer: 0,
+            ready: 0,
+            incoming: 0,
+            hangup: 0
+        }
+        const eventHandlers: Record<EventType, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]> = {
+            register: [],
+            dial: [],
+            answer: [],
+            ready: [],
+            incoming: [],
+            hangup: []
+        }
 
         for (const { event, actions } of scenario) {
             if (!eventHandlers[event]) {
@@ -225,23 +227,25 @@ export default class TestExecutor {
             eventHandlers[event].push(actions)
         }
 
-        (Object.entries(eventHandlers) as [keyof ActionsResponseMap, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]][]).forEach(
-            ([ eventName, handlers ]) => {
-                this.addEventListener(eventName, async (_, eventData) => {
-                    if (!this.shouldReactToEvent(eventData)) return
+        console.log('eventHandlers', eventHandlers)
 
-                    const currentIndex = eventCounter[eventName]
-                    const actions = handlers[currentIndex]
+        for (const eventName in eventHandlers) {
+            const handlers = eventHandlers[eventName]
 
-                    if (actions) {
-                        eventCounter[eventName]++
-                        for (const action of actions) {
-                            await this.executeAction(action)
-                        }
+            this.addEventListener(eventName, async (_, eventData) => {
+                if (!this.shouldReactToEvent(eventData)) return
+
+                const currentIndex = eventCounter[eventName]
+                const actions = handlers[currentIndex]
+
+                if (actions) {
+                    eventCounter[eventName]++
+                    for (const action of actions) {
+                        await this.executeAction(action)
                     }
-                })
-            }
-        )
+                }
+            })
+        }
 
         await this.start()
     }

@@ -12,7 +12,8 @@ module.exports = {
         'docs'
     ],
     rules: {
-        'space-before-blocks': 'off'
+        'space-before-blocks': 'off',
+        'no-dupe-class-members': 'off'
     },
     env: {
         es2021: true,

@@ -1,21 +1,5 @@
-import {
-    ActionsPerEvent,
-    ActionByActionType,
-    GetActionDefinition,
-} from './actions'
+import { EventHandler } from './events'
 
-import { EventsMap } from './events'
-
-export type TestScenarioListener<E extends keyof EventsMap> = {
-    event: E
-    actions: ActionsPerEvent<E>
-}
-
-export type TestScenario = {
-    [E in keyof EventsMap]: {
-        event: E
-        actions: GetActionDefinition<ActionByActionType<EventsMap[E]>>[]
-    }
-}[keyof EventsMap][]
+export type TestScenario = EventHandler[]
 
 export type TestScenarios = TestScenario[]

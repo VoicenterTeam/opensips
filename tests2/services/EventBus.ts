@@ -1,27 +1,17 @@
-import type {
-    EventListener,
-} from '../types/events'
-import { ActionsResponseMap } from '../types/actions'
+import { EventListener, EventListenerData, EventType } from '../types/events'
 
-/**
- * Global event bus to handle shared events across scenarios
- */
 export default class EventBus {
     private static instance: EventBus
-    private eventListeners: Map<string, EventListener[]> = new Map()
+    private eventListeners: Map<EventType, EventListener<any>[]> = new Map()
 
     public static getInstance (): EventBus {
-        console.log('Getting event bus instance')
         if (!EventBus.instance) {
-            console.log('No instance, will create')
             EventBus.instance = new EventBus()
         }
-
         return EventBus.instance
     }
 
-    // Register an event listener
-    public addEventListener (eventName: string, listener: EventListener): void {
+    public addEventListener <E extends EventType> (eventName: E, listener: EventListener<E>): void {
         if (!this.eventListeners.has(eventName)) {
             this.eventListeners.set(eventName, [])
         }
@@ -29,59 +19,46 @@ export default class EventBus {
         this.eventListeners.get(eventName).push(listener)
     }
 
-    // Remove an event listener
-    public removeEventListener (eventName: string, listener: EventListener): void {
-        if (this.eventListeners.has(eventName)) {
-            const listeners = this.eventListeners.get(eventName)
+    public removeEventListener <E extends EventType> (eventName: E, listener: EventListener<E>): void {
+        const listeners = this.eventListeners.get(eventName)
 
-            const index = listeners.indexOf(listener)
+        if (!listeners) return
 
-            if (index !== -1) {
-                listeners.splice(index, 1)
-            }
+        const index = listeners.indexOf(listener)
+
+        if (index !== -1) {
+            listeners.splice(index, 1)
         }
     }
 
-    // Trigger an event
-    public triggerEvent<E extends keyof ActionsResponseMap>(eventName: E, data?: ActionsResponseMap[E]): void;
-    public triggerEvent (eventName: string, data?: never): void {
+    public triggerEvent <E extends EventType> (
+        eventName: E,
+        data?: EventListenerData<E>
+    ): void {
         console.log(`[EventBus] Event triggered: ${eventName}`, data)
 
-        // Make a copy of the listeners array to avoid modification during iteration
         const listeners = [ ...(this.eventListeners.get(eventName) || []) ]
-
-        // For debugging purposes
         console.log(`[EventBus] Found ${listeners.length} listeners for event: ${eventName}`)
 
-        // First trigger specific event listeners
         for (const listener of listeners) {
-            // Execute the listener
-            listener(eventName, data)
-        }
-
-        // Make a copy of the wildcard listeners
-        const wildcardListeners = [ ...(this.eventListeners.get('*') || []) ]
-
-        // Then trigger wildcard listeners
-        for (const listener of wildcardListeners) {
             listener(eventName, data)
         }
     }
 
-    // Utility to wait for an event
-    public waitForEvent<E extends keyof ActionsResponseMap>(eventName: E, additionalCheck: (eventName: string, data: object) => boolean, timeout?: number): Promise<ActionsResponseMap[E]>;
-    public waitForEvent (eventName: string, additionalCheck: (eventName: string, data: object) => boolean, timeout?: number): Promise<never> {
+    public waitForEvent <E extends EventType> (
+        eventName: E,
+        additionalCheck: (eventName: E, data: EventListenerData<E>) => boolean,
+        timeout?: number
+    ): Promise<EventListenerData<E>> {
         return new Promise((resolve, reject) => {
-            const listener: EventListener = (name, data) => {
-                console.log(`Triggered listener for waiting event: ${eventName}, name === eventName: ${name === eventName}, additionalCheck(name, data): ${additionalCheck(name, data)}`)
-
+            const listener: EventListener<E> = (name, data) => {
                 if (name === eventName && additionalCheck(name, data)) {
                     this.removeEventListener(eventName, listener)
                     resolve(data)
                 }
             }
 
-            this.addEventListener(eventName, listener)
+            this.addEventListener<E>(eventName, listener)
 
             if (timeout) {
                 setTimeout(() => {
