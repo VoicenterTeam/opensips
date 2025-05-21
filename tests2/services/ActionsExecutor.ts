@@ -6,6 +6,8 @@ import { WebRTCMetricsCollector } from './WebRTCMetricsCollector'
 import PageWebSocketWorker from './PageWebSocketWorker'
 import WindowMethodsWorker from './WindowMethodsWorker'
 
+import '../services/TelemetrySetup'
+
 import {
     GetActionPayload,
     GetActionResponse,
@@ -242,7 +244,7 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         }
     }
 
-    public async playSound (data: GetActionPayload<PlaySoundAction>): Promise<GetActionResponse<PlaySoundAction>> {
+    /*    public async playSound (data: GetActionPayload<PlaySoundAction>): Promise<GetActionResponse<PlaySoundAction>> {
         const soundPath = data.sound
         console.log(`[Scenario ${this.scenarioId}] Playing sound`, soundPath)
 
@@ -275,7 +277,7 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         return {
             success: true
         }
-    }
+    }*/
 
     public async request (data: GetActionPayload<RequestAction>): Promise<GetActionResponse<RequestAction>> {
         console.log(`[Scenario ${this.scenarioId}] Executing request action`, data)

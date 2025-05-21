@@ -1,5 +1,7 @@
 import { Browser, chromium, Page } from 'playwright'
 import mustache from 'mustache'
+import path from 'path'
+const audioPath = path.resolve(__dirname, '../sounds/sara.wav')
 
 import PageWebSocketWorker from './PageWebSocketWorker'
 import EventBus from './EventBus'
@@ -18,6 +20,7 @@ import {
 } from '../types/actions'
 import { TestScenario } from '../types/intex'
 import { EventListener, EventListenerData, EventType } from '../types/events'
+import { logTestEvent } from './TelemetrySetup'
 
 const SCENARIO_THAT_TRIGGERED_EVENT_KEY = 'SCENARIO_THAT_TRIGGERED_EVENT_KEY' as const
 
@@ -117,6 +120,9 @@ export default class TestExecutor {
                 throw error
             }
         }
+        logTestEvent(action.type, this.scenarioId, 'success', {
+            stage: 'triggered',
+        })
 
         const triggerCustom = <T extends ActionType> (result: ActionsResponseMap[T]) => {
             if (action.data.customSharedEvent) {
@@ -201,7 +207,15 @@ export default class TestExecutor {
             }
         } catch (error) {
             console.error(`[Scenario ${this.scenarioId}] Error executing action:`, error)
+            logTestEvent(action.type, this.scenarioId, 'failure', {
+                stage: 'listener_error',
+                errorMessage: error.message
+            })
             throw error
+        } finally {
+            logTestEvent(action.type, this.scenarioId, 'success', {
+                stage: 'completed',
+            })
         }
     }
 
@@ -211,8 +225,9 @@ export default class TestExecutor {
             args: [
                 '--use-fake-ui-for-media-stream',
                 '--use-fake-device-for-media-stream',
+                `--use-file-for-fake-audio-capture=${audioPath}`,
                 '--allow-file-access',
-                '--autoplay-policy=no-user-gesture-required',
+                '--autoplay-policy=no-user-gesture-required'
             ],
         })
 
@@ -236,7 +251,7 @@ export default class TestExecutor {
             this.triggerLocalEventListener.bind(this)
         )
 
-        this.windowMethodsWorker = new WindowMethodsWorker(this.page)
+        //this.windowMethodsWorker = new WindowMethodsWorker(this.page)
 
         this.actionsExecutor = new ActionsExecutor(
             this.scenarioId,
@@ -246,7 +261,7 @@ export default class TestExecutor {
             this.browser
         )
 
-        await this.windowMethodsWorker.implementPlayClipMethod()
+        //await this.windowMethodsWorker.implementPlayClipMethod()
 
         await this.page.goto('http://localhost:5173')
         await waitMs(100)
