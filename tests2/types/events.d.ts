@@ -19,7 +19,7 @@ export interface EventsMap {
     sendDTMF: AllowedActions<'wait' | 'request'>
     transfer: AllowedActions<'wait' | 'request'>
     unregister: AllowedActions<'wait' | 'request'>
-    ready: AllowedActions<'register' | 'wait' | 'request'>
+    ready: AllowedActions<'register' | 'wait' | 'request' | 'dial'>
     incoming: AllowedActions<'answer' | 'wait' | 'request'>
     [customEvent: string]: AllowedActions<ActionType>
 }

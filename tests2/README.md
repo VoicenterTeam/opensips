@@ -103,6 +103,8 @@ export default class MyTestScenarios extends TestScenariosBuilder {
     init(): TestScenarios {
         return [
             // Your test scenarios will go here
+            // Each scenario should have a name and an array of event handlers
+            this.createScenario('name', [/* event handlers */])
         ]
     }
 }
@@ -136,25 +138,29 @@ There are two ways to define test scenarios in the framework:
 This approach uses the helper methods provided by `TestScenariosBuilder` to create scenarios with full type safety:
 
 ```typescript
+// Create a scenario with a name and an array of event handlers
 this.createScenario(
-    this.on('ready', [
-        // Actions to perform when the 'ready' event occurs
-        this.register({
-            payload: {
-                sip_domain: '{{caller.sip_domain}}',
-                username: '{{caller.username}}',
-                password: '{{caller.password}}',
-            },
-            customSharedEvent: 'caller_registered'
-        })
-    ]),
-    this.on('incoming', [
-        // Actions to perform when an incoming call is received
-        this.answer({
-            customSharedEvent: 'call_answered',
-        })
-    ]),
-    // More event handlers...
+    'caller', // Scenario name for better identification and debugging
+    [
+        this.on('ready', [
+            // Actions to perform when the 'ready' event occurs
+            this.register({
+                payload: {
+                    sip_domain: '{{caller.sip_domain}}',
+                    username: '{{caller.username}}',
+                    password: '{{caller.password}}',
+                },
+                customSharedEvent: 'caller_registered'
+            })
+        ]),
+        this.on('incoming', [
+            // Actions to perform when an incoming call is received
+            this.answer({
+                customSharedEvent: 'call_answered',
+            })
+        ]),
+        // More event handlers...
+    ]
 )
 ```
 
@@ -166,35 +172,38 @@ Since all of the helper methods in `TestScenariosBuilder` simply return plain ob
 init(): TestScenarios {
     return [
         // A scenario defined directly as a JSON structure
-        [
-            {
-                event: 'ready',
-                actions: [
-                    {
-                        type: 'register',
-                        data: {
-                            payload: {
-                                sip_domain: '{{caller.sip_domain}}',
-                                username: '{{caller.username}}',
-                                password: '{{caller.password}}',
-                            },
-                            customSharedEvent: 'caller_registered'
+        {
+            name: 'caller', // Required name for the scenario
+            actions: [
+                {
+                    event: 'ready',
+                    actions: [
+                        {
+                            type: 'register',
+                            data: {
+                                payload: {
+                                    sip_domain: '{{caller.sip_domain}}',
+                                    username: '{{caller.username}}',
+                                    password: '{{caller.password}}',
+                                },
+                                customSharedEvent: 'caller_registered'
+                            }
                         }
-                    }
-                ]
-            },
-            {
-                event: 'incoming',
-                actions: [
-                    {
-                        type: 'answer',
-                        data: {
-                            customSharedEvent: 'call_answered'
+                    ]
+                },
+                {
+                    event: 'incoming',
+                    actions: [
+                        {
+                            type: 'answer',
+                            data: {
+                                customSharedEvent: 'call_answered'
+                            }
                         }
-                    }
-                ]
-            }
-        ]
+                    ]
+                }
+            ]
+        }
     ]
 }
 ```
@@ -204,26 +213,29 @@ init(): TestScenarios {
 The structure of a JSON-defined scenario follows this pattern:
 
 ```javascript
-[  // Array of event handlers
-    {
-        event: 'eventName',  // Name of the event to handle
-        actions: [  // Array of actions to execute when the event occurs
-            {
-                type: 'actionType',  // Type of action (e.g., 'register', 'dial', etc.)
-                data: {  // Action data
-                    payload: {  // Action-specific payload
-                        // Properties depend on the action type
-                    },
-                    waitUntil: {  // Optional: Make the action wait for another event
-                        event: 'eventName',
-                        timeout: 5000  // Optional timeout in ms
-                    },
-                    customSharedEvent: 'customEventName'  // Optional: Event to trigger after completion
+{
+    name: 'scenarioName',  // Required name for the scenario
+    actions: [  // Array of event handlers
+        {
+            event: 'eventName',  // Name of the event to handle
+            actions: [  // Array of actions to execute when the event occurs
+                {
+                    type: 'actionType',  // Type of action (e.g., 'register', 'dial', etc.)
+                    data: {  // Action data
+                        payload: {  // Action-specific payload
+                            // Properties depend on the action type
+                        },
+                        waitUntil: {  // Optional: Make the action wait for another event
+                            event: 'eventName',
+                            timeout: 5000  // Optional timeout in ms
+                        },
+                        customSharedEvent: 'customEventName'  // Optional: Event to trigger after completion
+                    }
                 }
-            }
-        ]
-    }
-]
+            ]
+        }
+    ]
+}
 ```
 
 #### Benefits of JSON-Based Definition
@@ -240,15 +252,18 @@ You can mix both approaches, using the method-based approach for type safety dur
 ```typescript
 // Define a scenario using methods for type safety
 const myScenario = this.createScenario(
-    this.on('ready', [
-        this.register({
-            payload: {
-                sip_domain: '{{caller.sip_domain}}',
-                username: '{{caller.username}}',
-                password: '{{caller.password}}',
-            }
-        })
-    ])
+    'caller', // Required scenario name
+    [
+        this.on('ready', [
+            this.register({
+                payload: {
+                    sip_domain: '{{caller.sip_domain}}',
+                    username: '{{caller.username}}',
+                    password: '{{caller.password}}',
+                }
+            })
+        ])
+    ]
 );
 
 // The result is a plain object that could be serialized to JSON
@@ -267,12 +282,18 @@ init(): TestScenarios {
     return [
         // Scenario 1 - Caller
         this.createScenario(
-            // Caller event handlers...
+            'caller', // Scenario name
+            [
+                // Caller event handlers...
+            ]
         ),
         
         // Scenario 2 - Callee
         this.createScenario(
-            // Callee event handlers...
+            'callee', // Scenario name
+            [
+                // Callee event handlers...
+            ]
         )
     ]
 }
@@ -873,66 +894,72 @@ init(): TestScenarios {
     return [
         // Caller scenario
         this.createScenario(
-            this.on('ready', [
-                this.request({
-                    payload: {
-                        url: 'https://api.example.com/credentials',
-                        options: { method: 'GET' }
-                    },
-                    customSharedEvent: 'caller_credentials_received'
-                })
-            ]),
-            this.on('caller_credentials_received', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{response.domain}}',
-                        username: '{{response.username}}',
-                        password: '{{response.password}}',
-                    },
-                    customSharedEvent: 'caller_registered'
-                })
-            ]),
-            this.on('callee_registered', [
-                this.dial({
-                    payload: {
-                        target: '{{callee.username}}@{{callee.sip_domain}}'
-                    },
-                    customSharedEvent: 'call_initiated'
-                })
-            ]),
-            this.on('call_answered', [
-                this.wait({
-                    payload: { time: 3000 }
-                }),
-                this.hangup({
-                    customSharedEvent: 'call_ended'
-                })
-            ]),
-            this.on('call_ended', [
-                this.unregister({})
-            ])
+            'caller', // Scenario name
+            [
+                this.on('ready', [
+                    this.request({
+                        payload: {
+                            url: 'https://api.example.com/credentials',
+                            options: { method: 'GET' }
+                        },
+                        customSharedEvent: 'caller_credentials_received'
+                    })
+                ]),
+                this.on('caller_credentials_received', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{response.domain}}',
+                            username: '{{response.username}}',
+                            password: '{{response.password}}',
+                        },
+                        customSharedEvent: 'caller_registered'
+                    })
+                ]),
+                this.on('callee_registered', [
+                    this.dial({
+                        payload: {
+                            target: '{{callee.username}}@{{callee.sip_domain}}'
+                        },
+                        customSharedEvent: 'call_initiated'
+                    })
+                ]),
+                this.on('call_answered', [
+                    this.wait({
+                        payload: { time: 3000 }
+                    }),
+                    this.hangup({
+                        customSharedEvent: 'call_ended'
+                    })
+                ]),
+                this.on('call_ended', [
+                    this.unregister({})
+                ])
+            ]
         ),
         
         // Callee scenario
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{callee.sip_domain}}',
-                        username: '{{callee.username}}',
-                        password: '{{callee.password}}',
-                    },
-                    customSharedEvent: 'callee_registered'
-                })
-            ]),
-            this.on('incoming', [
-                this.answer({
-                    customSharedEvent: 'call_answered'
-                })
-            ]),
-            this.on('call_ended', [
-                this.unregister({})
-            ])
+            'callee', // Scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{callee.sip_domain}}',
+                            username: '{{callee.username}}',
+                            password: '{{callee.password}}',
+                        },
+                        customSharedEvent: 'callee_registered'
+                    })
+                ]),
+                this.on('incoming', [
+                    this.answer({
+                        customSharedEvent: 'call_answered'
+                    })
+                ]),
+                this.on('call_ended', [
+                    this.unregister({})
+                ])
+            ]
         )
     ]
 }
@@ -944,85 +971,91 @@ init(): TestScenarios {
 init(): TestScenarios {
     return [
         // Caller scenario defined using JSON
-        [
-            {
-                event: 'ready',
-                actions: [
-                    {
-                        type: 'register',
-                        data: {
-                            payload: {
-                                sip_domain: '{{caller.sip_domain}}',
-                                username: '{{caller.username}}',
-                                password: '{{caller.password}}',
-                            },
-                            customSharedEvent: 'caller_registered'
+        {
+            name: 'caller', // Required scenario name
+            actions: [
+                {
+                    event: 'ready',
+                    actions: [
+                        {
+                            type: 'register',
+                            data: {
+                                payload: {
+                                    sip_domain: '{{caller.sip_domain}}',
+                                    username: '{{caller.username}}',
+                                    password: '{{caller.password}}',
+                                },
+                                customSharedEvent: 'caller_registered'
+                            }
                         }
-                    }
-                ]
-            },
-            {
-                event: 'callee_registered',
-                actions: [
-                    {
-                        type: 'dial',
-                        data: {
-                            payload: {
-                                target: '{{callee.username}}@{{callee.sip_domain}}'
-                            },
-                            customSharedEvent: 'call_initiated'
+                    ]
+                },
+                {
+                    event: 'callee_registered',
+                    actions: [
+                        {
+                            type: 'dial',
+                            data: {
+                                payload: {
+                                    target: '{{callee.username}}@{{callee.sip_domain}}'
+                                },
+                                customSharedEvent: 'call_initiated'
+                            }
                         }
-                    }
-                ]
-            },
-            {
-                event: 'call_answered',
-                actions: [
-                    {
-                        type: 'wait',
-                        data: {
-                            payload: { time: 3000 }
+                    ]
+                },
+                {
+                    event: 'call_answered',
+                    actions: [
+                        {
+                            type: 'wait',
+                            data: {
+                                payload: { time: 3000 }
+                            }
+                        },
+                        {
+                            type: 'hangup',
+                            data: {
+                                customSharedEvent: 'call_ended'
+                            }
                         }
-                    },
-                    {
-                        type: 'hangup',
-                        data: {
-                            customSharedEvent: 'call_ended'
+                    ]
+                },
+                {
+                    event: 'call_ended',
+                    actions: [
+                        {
+                            type: 'unregister',
+                            data: {}
                         }
-                    }
-                ]
-            },
-            {
-                event: 'call_ended',
-                actions: [
-                    {
-                        type: 'unregister',
-                        data: {}
-                    }
-                ]
-            }
-        ],
+                    ]
+                }
+            ]
+        },
         
         // Callee scenario defined using method approach for comparison
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{callee.sip_domain}}',
-                        username: '{{callee.username}}',
-                        password: '{{callee.password}}',
-                    },
-                    customSharedEvent: 'callee_registered'
-                })
-            ]),
-            this.on('incoming', [
-                this.answer({
-                    customSharedEvent: 'call_answered'
-                })
-            ]),
-            this.on('call_ended', [
-                this.unregister({})
-            ])
+            'callee', // Required scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{callee.sip_domain}}',
+                            username: '{{callee.username}}',
+                            password: '{{callee.password}}',
+                        },
+                        customSharedEvent: 'callee_registered'
+                    })
+                ]),
+                this.on('incoming', [
+                    this.answer({
+                        customSharedEvent: 'call_answered'
+                    })
+                ]),
+                this.on('call_ended', [
+                    this.unregister({})
+                ])
+            ]
         )
     ]
 }
@@ -1052,32 +1085,38 @@ init(): TestScenarios {
     return [
         // Caller scenario
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{CALLER.SIP_DOMAIN}}',
-                        username: '{{CALLER.USERNAME}}',
-                        password: '{{CALLER.PASSWORD}}',
-                    },
-                    customSharedEvent: 'caller_registered'
-                })
-            ]),
-            // ... rest of the scenario
+            'caller', // Required scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{CALLER.SIP_DOMAIN}}',
+                            username: '{{CALLER.USERNAME}}',
+                            password: '{{CALLER.PASSWORD}}',
+                        },
+                        customSharedEvent: 'caller_registered'
+                    })
+                ])
+                // ... rest of the scenario
+            ]
         ),
         
         // Callee scenario
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{CALLEE.SIP_DOMAIN}}',
-                        username: '{{CALLEE.USERNAME}}',
-                        password: '{{CALLEE.PASSWORD}}',
-                    },
-                    customSharedEvent: 'callee_registered'
-                })
-            ]),
-            // ... rest of the scenario
+            'callee', // Required scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{CALLEE.SIP_DOMAIN}}',
+                            username: '{{CALLEE.USERNAME}}',
+                            password: '{{CALLEE.PASSWORD}}',
+                        },
+                        customSharedEvent: 'callee_registered'
+                    })
+                ])
+                // ... rest of the scenario
+            ]
         )
     ]
 }
@@ -1090,92 +1129,98 @@ init(): TestScenarios {
     return [
         // Caller scenario
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{caller.sip_domain}}',
-                        username: '{{caller.username}}',
-                        password: '{{caller.password}}',
-                    },
-                    customSharedEvent: 'caller_registered'
-                })
-            ]),
-            this.on('callee_registered', [
-                this.dial({
-                    payload: {
-                        target: '{{callee.username}}@{{callee.sip_domain}}'
-                    },
-                    customSharedEvent: 'call_initiated'
-                })
-            ]),
-            this.on('call_answered', [
-                this.wait({
-                    payload: { time: 1000 }
-                }),
-                this.hold({
-                    customSharedEvent: 'call_held'
-                })
-            ]),
-            this.on('call_resumed', [
-                this.wait({
-                    payload: { time: 1000 }
-                }),
-                this.sendDTMF({
-                    payload: {
-                        dtmf: '123'
-                    },
-                    customSharedEvent: 'dtmf_sent'
-                })
-            ]),
-            this.on('dtmf_sent', [
-                this.wait({
-                    payload: { time: 1000 }
-                }),
-                this.hangup({
-                    customSharedEvent: 'call_ended'
-                })
-            ]),
-            this.on('call_ended', [
-                this.unregister({})
-            ])
+            'caller', // Required scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{caller.sip_domain}}',
+                            username: '{{caller.username}}',
+                            password: '{{caller.password}}',
+                        },
+                        customSharedEvent: 'caller_registered'
+                    })
+                ]),
+                this.on('callee_registered', [
+                    this.dial({
+                        payload: {
+                            target: '{{callee.username}}@{{callee.sip_domain}}'
+                        },
+                        customSharedEvent: 'call_initiated'
+                    })
+                ]),
+                this.on('call_answered', [
+                    this.wait({
+                        payload: { time: 1000 }
+                    }),
+                    this.hold({
+                        customSharedEvent: 'call_held'
+                    })
+                ]),
+                this.on('call_resumed', [
+                    this.wait({
+                        payload: { time: 1000 }
+                    }),
+                    this.sendDTMF({
+                        payload: {
+                            dtmf: '123'
+                        },
+                        customSharedEvent: 'dtmf_sent'
+                    })
+                ]),
+                this.on('dtmf_sent', [
+                    this.wait({
+                        payload: { time: 1000 }
+                    }),
+                    this.hangup({
+                        customSharedEvent: 'call_ended'
+                    })
+                ]),
+                this.on('call_ended', [
+                    this.unregister({})
+                ])
+            ]
         ),
         
         // Callee scenario
         this.createScenario(
-            this.on('ready', [
-                this.register({
-                    payload: {
-                        sip_domain: '{{callee.sip_domain}}',
-                        username: '{{callee.username}}',
-                        password: '{{callee.password}}',
-                    },
-                    customSharedEvent: 'callee_registered'
-                })
-            ]),
-            this.on('incoming', [
-                this.answer({
-                    customSharedEvent: 'call_answered'
-                })
-            ]),
-            this.on('call_held', [
-                this.wait({
-                    payload: { time: 2000 }
-                }),
-                this.playSound({
-                    payload: {
-                        sound: '/path/to/notification.wav'
-                    },
-                    customSharedEvent: 'notification_played'
-                })
-            ]),
-            this.on('notification_played', [
-                this.unhold({
-                    customSharedEvent: 'call_resumed'
-                })
-            ]),
-            this.on('call_ended', [
-                this.unregister({})
-            ])
+            'callee', // Required scenario name
+            [
+                this.on('ready', [
+                    this.register({
+                        payload: {
+                            sip_domain: '{{callee.sip_domain}}',
+                            username: '{{callee.username}}',
+                            password: '{{callee.password}}',
+                        },
+                        customSharedEvent: 'callee_registered'
+                    })
+                ]),
+                this.on('incoming', [
+                    this.answer({
+                        customSharedEvent: 'call_answered'
+                    })
+                ]),
+                this.on('call_held', [
+                    this.wait({
+                        payload: { time: 2000 }
+                    }),
+                    this.playSound({
+                        payload: {
+                            sound: '/path/to/notification.wav'
+                        },
+                        customSharedEvent: 'notification_played'
+                    })
+                ]),
+                this.on('notification_played', [
+                    this.unhold({
+                        customSharedEvent: 'call_resumed'
+                    })
+                ]),
+                this.on('call_ended', [
+                    this.unregister({})
+                ])
+            ]
         )
     ]
 }

@@ -39,7 +39,13 @@ export default class ScenarioManager {
         for (let i = 0; i < this.scenarios.length; i++) {
             const scenarioId = `scenario-${i + 1}`
             console.log(scenarioId, 'created')
-            executors.push(new TestExecutor(scenarioId, this))
+            executors.push(
+                new TestExecutor(
+                    scenarioId,
+                    this.scenarios[i].name,
+                    this
+                )
+            )
         }
 
         // Execute all scenarios in parallel

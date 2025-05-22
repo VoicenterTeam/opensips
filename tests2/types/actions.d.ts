@@ -2,16 +2,46 @@
 /* BASE INTERFACES FOR ACTIONS */
 /*******************************/
 import { APIRequestContext } from 'playwright-core'
+import { EventType } from './events'
 
+export interface ActionSuccessResponse {
+    success: true
+    // The response data of the action
+    [key: string]: any
+}
+export interface ActionErrorResponse {
+    success: false
+    // The error message of the action
+    error: string
+}
+
+interface ActionResponseToContextEnabled {
+    // The action will set the response to the context
+    setToContext: true
+    // The key to set in the context
+    contextKeyToSet: string
+}
+interface ActionResponseToContextDisabled {
+    // The action will not set the response to the context
+    setToContext: false
+    // The key to set in the context
+    contextKeyToSet?: never
+}
+export type ActionResponseToContext =
+    | ActionResponseToContextEnabled
+    | ActionResponseToContextDisabled
 export interface ActionWaitUntil {
     // The event to wait for
-    event: ActionType
+    event: EventType
     // The timeout in milliseconds to execute the action if the event is not triggered
     timeout?: number
 }
 export interface ActionData<Payload extends object> {
     // The data of the action to execute
     payload?: Payload
+
+    // Configuration of the context modification after the action
+    responseToContext?: ActionResponseToContext
 
     // The event to wait for before executing the action
     waitUntil?: ActionWaitUntil
@@ -26,10 +56,10 @@ export interface BaseActionDefinition<Type extends string, Payload extends objec
 export interface Action <
     Type extends string,
     Payload = undefined,
-    Response extends object
+    SuccessResponse extends ActionSuccessResponse
 > {
     definition: BaseActionDefinition<Type, Payload>
-    response: Response
+    response: SuccessResponse | ActionErrorResponse
 }
 
 /*******************************/
@@ -42,7 +72,7 @@ interface RegisterActionPayload {
     username: string
     password: string
 }
-interface RegisterActionResponse {
+interface RegisterActionResponse extends ActionSuccessResponse {
     success: boolean
     instanceId: string
 }
@@ -56,7 +86,7 @@ export type RegisterAction = Action<
 interface DialActionData {
     target: string
 }
-interface DialActionResponse {
+interface DialActionResponse extends ActionSuccessResponse {
     success: boolean
     target: string,
     callId: string
@@ -72,7 +102,7 @@ interface WaitActionData {
     // The time to wait in milliseconds
     time: number
 }
-interface WaitActionResponse {
+interface WaitActionResponse extends ActionSuccessResponse {
     success: boolean
 }
 export type WaitAction = Action<
@@ -86,7 +116,7 @@ interface PlaySoundActionData {
     // The sound to play, can be a URL or a file path
     sound: string
 }
-interface PlaySoundActionResponse {
+interface PlaySoundActionResponse extends ActionSuccessResponse {
     success: boolean
 }
 export type PlaySoundAction = Action<
@@ -96,7 +126,7 @@ export type PlaySoundAction = Action<
 >
 
 /* Answer */
-interface AnswerActionResponse {
+interface AnswerActionResponse extends ActionSuccessResponse {
     success: boolean
     callId: string
 }
@@ -107,7 +137,7 @@ export type AnswerAction = Action<
 >
 
 /* Hold */
-interface HoldActionResponse {
+interface HoldActionResponse extends ActionSuccessResponse {
     success: boolean
     callId: string
 }
@@ -118,7 +148,7 @@ export type HoldAction = Action<
 >
 
 /* Unhold */
-interface UnholdActionResponse {
+interface UnholdActionResponse extends ActionSuccessResponse {
     success: boolean
     callId: string
 }
@@ -129,7 +159,7 @@ export type UnholdAction = Action<
 >
 
 /* Hangup */
-interface HangupActionResponse {
+interface HangupActionResponse extends ActionSuccessResponse {
     success: boolean
     callId: string
 }
@@ -144,7 +174,7 @@ interface SendDTMFEventData {
     // The DTMF number to send
     dtmf: string
 }
-interface SendDTMFActionResponse {
+interface SendDTMFActionResponse extends ActionSuccessResponse {
     dtmf: string
     callId: string
     success: boolean
@@ -160,7 +190,7 @@ interface TransferEventData {
     // The target to transfer the call to
     target: string
 }
-interface TransferActionResponse {
+interface TransferActionResponse extends ActionSuccessResponse {
     callId: string
     success: boolean
 }
@@ -171,7 +201,7 @@ export type TransferAction = Action<
 >
 
 /* Unregister */
-interface UnregisterActionResponse {
+interface UnregisterActionResponse extends ActionSuccessResponse {
     success: boolean
 }
 export type UnregisterAction = Action<

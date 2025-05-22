@@ -282,13 +282,27 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
     public async request (data: GetActionPayload<RequestAction>): Promise<GetActionResponse<RequestAction>> {
         console.log(`[Scenario ${this.scenarioId}] Executing request action`, data)
 
-        const response = await this.page.request.fetch(data.url, data.options)
+        try {
+            const response = await this.page.request.fetch(
+                data.url,
+                data.options
+            )
 
-        const responseBody = await response.json()
+            const responseBody = await response.json()
 
-        return {
-            success: response.ok(),
-            response: responseBody
+            return {
+                success: response.ok(),
+                response: responseBody
+            }
+        } catch (error) {
+            console.error(`[Scenario ${this.scenarioId}] Error during request:`, error)
+
+            const message = error instanceof Error ? error.message : 'Unknown error'
+
+            return {
+                success: false,
+                error: message
+            }
         }
     }
 }

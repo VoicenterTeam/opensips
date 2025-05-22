@@ -28,6 +28,8 @@ import { SendDTMFAction } from '../types/actions'
 import { GetActionDefinition } from '../types/actions'
 import { TransferAction } from '../types/actions'
 
+import env from '../env'
+
 /**
  * Base class for defining test scenarios
  */
@@ -127,12 +129,17 @@ export default abstract class TestScenariosBuilder implements ActionsScenariosBu
     }
 
     protected createScenario (
-        ...eventHandlers: EventHandler<EventType>[]
+        name: string,
+        eventHandlers: EventHandler<EventType>[]
     ): TestScenario {
-        return eventHandlers.map(({ event, actions }) => ({
-            event,
-            actions
-        }))
+        return {
+            name,
+            actions: eventHandlers
+        }
+    }
+
+    getEnvContext (): TestContext {
+        return env.PARAMETERS
     }
 
     abstract getInitialContext(): TestContext
@@ -144,9 +151,13 @@ export default abstract class TestScenariosBuilder implements ActionsScenariosBu
     async run (): Promise<void> {
         const scenarios = this.init()
         const initialContext = this.getInitialContext()
+
         const manager = new ScenarioManager(
             scenarios,
-            initialContext
+            {
+                ...this.getEnvContext(),
+                ...initialContext
+            }
         )
         await manager.runScenarios()
     }
