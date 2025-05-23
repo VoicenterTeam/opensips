@@ -800,7 +800,7 @@ console.log(`Average Jitter: ${avgMetrics.avgJitter.toFixed(2)}ms`)
 
 To add a new action:
 
-1. Define the action's type, payload, and response in `types/actions.d.ts`:
+1. Define the action's type, payload, and response in `types/actions.ts`:
 
 ```typescript
 interface NewActionPayload {

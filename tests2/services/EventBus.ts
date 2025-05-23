@@ -35,7 +35,7 @@ export default class EventBus {
         eventName: E,
         data?: EventListenerData<E>
     ): void {
-        console.log(`[EventBus] Event triggered: ${eventName}`, data)
+        console.log(`[EventBus] Event triggered: ${eventName}`)
 
         const listeners = [ ...(this.eventListeners.get(eventName) || []) ]
         console.log(`[EventBus] Found ${listeners.length} listeners for event: ${eventName}`)

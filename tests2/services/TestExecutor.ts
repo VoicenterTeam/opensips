@@ -1,15 +1,15 @@
 import { Browser, chromium, Page } from 'playwright'
 import mustache from 'mustache'
-import path from 'path'
-const audioPath = path.resolve(__dirname, '../sounds/sara.wav')
 
 import PageWebSocketWorker from './PageWebSocketWorker'
 import EventBus from './EventBus'
 import ActionsExecutor from './ActionsExecutor'
 import WindowMethodsWorker from './WindowMethodsWorker'
 import ScenarioManager from './ScenarioManager'
+import { TelemetryService } from './TelemetryService'
 
 import { waitMs } from '../helpers'
+import env from '../env'
 
 import {
     ActionsResponseMap,
@@ -17,11 +17,13 @@ import {
     ActionType,
     ActionByActionType,
     GetActionPayload,
-    ActionErrorResponse
+    BaseActionSuccessResponse,
+    ActionResponse,
+    isActionSuccess,
+    isActionError
 } from '../types/actions'
 import { TestScenario } from '../types/intex'
 import { EventListener, EventListenerData, EventType } from '../types/events'
-import { logTestEvent } from './TelemetrySetup'
 
 const SCENARIO_THAT_TRIGGERED_EVENT_KEY = 'SCENARIO_THAT_TRIGGERED_EVENT_KEY' as const
 
@@ -29,8 +31,10 @@ export default class TestExecutor {
     private pageWebSocketWorker!: PageWebSocketWorker
     private actionsExecutor!: ActionsExecutor
     private windowMethodsWorker!: WindowMethodsWorker
+    private readonly telemetryService: TelemetryService
 
     private readonly eventBus = EventBus.getInstance()
+    private scenarioCompleted = false // Add completion flag
 
     public page!: Page
     public browser!: Browser
@@ -39,7 +43,9 @@ export default class TestExecutor {
         private readonly scenarioId: string,
         private readonly scenarioName: string,
         private readonly scenarioManager: ScenarioManager
-    ) {}
+    ) {
+        this.telemetryService = new TelemetryService(scenarioId, scenarioName)
+    }
 
     private addEventListener<E extends EventType> (
         eventName: E,
@@ -79,7 +85,7 @@ export default class TestExecutor {
         )
     }
 
-    private buildPayload <T extends ActionType, Payload extends GetActionPayload<T>> (
+    private buildPayload <T extends ActionType, Payload extends GetActionPayload<ActionByActionType<T>>> (
         actionType: T,
         action: GetActionDefinition<ActionByActionType<T>>,
     ): Payload {
@@ -107,231 +113,289 @@ export default class TestExecutor {
     ): Promise<void> {
         console.log(`[Scenario ${this.scenarioId}] Executing action: ${action.type}`)
 
-        if (action.data.waitUntil) {
+        // Start telemetry tracking for this action
+        await this.telemetryService.logTriggered(action.type, {
+            actionData: JSON.stringify(action.data)
+        })
+
+        if (action.data && action.data.waitUntil && action.data.waitUntil.event) {
             console.log(`[Scenario ${this.scenarioId}] Waiting for event: ${action.data.waitUntil.event}`)
 
             try {
+                // Wait for the event globally (not just scenario-specific)
                 await this.eventBus.waitForEvent(
                     action.data.waitUntil.event,
                     (_, data) => this.shouldReactToEvent(data),
-                    action.data.waitUntil.timeout
+                    action.data.waitUntil.timeout || 30000 // Default 30 second timeout
                 )
                 console.log(`[Scenario ${this.scenarioId}] Event received: ${action.data.waitUntil.event}`)
             } catch (error) {
                 console.error(`[Scenario ${this.scenarioId}] Error waiting for event:`, error)
+                await this.telemetryService.logError(action.type, error, {
+                    phase: 'waitUntil',
+                    waitingFor: action.data.waitUntil.event
+                })
                 throw error
             }
         }
 
-        logTestEvent(action.type, this.scenarioId, 'success', {
-            stage: 'triggered',
-        })
-
-        const triggerCustom = <T extends ActionType> (result: ActionsResponseMap[T]) => {
-            if (action.data.customSharedEvent) {
-                const sharedData: ActionsResponseMap[T] & { originScenario: string; actionType: string } = {
+        const triggerCustom = (result: ActionResponse<BaseActionSuccessResponse>) => {
+            if (action.data && action.data.customSharedEvent && isActionSuccess(result)) {
+                const sharedData = {
                     ...result,
                     originScenario: this.scenarioId,
                     actionType: action.type
                 }
                 setTimeout(() => {
-                    this.triggerSharedEventListener(action.data.customSharedEvent, sharedData)
+                    this.triggerSharedEventListener(action.data.customSharedEvent!, sharedData)
                 }, 0)
             }
         }
-        const onResult = <T extends ActionType> (result: ActionsResponseMap[T] | ActionErrorResponse) => {
-            if ('success' in result && result.success === false) {
-                console.error(`[Scenario ${this.scenarioId}] Action failed:`, result.error)
 
+        const onResult = (result: ActionResponse<BaseActionSuccessResponse>) => {
+            if (isActionError(result)) {
+                console.error(`[Scenario ${this.scenarioId}] Action failed:`, result.error)
                 throw new Error(result.error)
             }
 
-            if ('responseToContext' in action.data && action.data.responseToContext.setToContext && action.data.responseToContext.contextKeyToSet) {
+            if (action.data && 'responseToContext' in action.data &&
+                action.data.responseToContext?.setToContext &&
+                action.data.responseToContext.contextKeyToSet) {
                 this.scenarioManager.updateContext({
                     [action.data.responseToContext.contextKeyToSet]: result
                 })
-
                 console.log('context after update:', JSON.stringify(this.scenarioManager.getContext()))
             }
         }
 
         try {
-            // We'll handle each case separately with its own type
             const actionType = action.type
+            let result: ActionResponse<BaseActionSuccessResponse>
 
-            // Use a type safe approach that doesn't require explicit typing of 'result'
-            if (actionType === 'register') {
-                const result = await this.actionsExecutor.register(this.buildPayload('register', action))
-                onResult(result)
-                this.triggerLocalEventListener('register', result)
-                triggerCustom(result)
-            } else if (actionType === 'dial') {
-                const result = await this.actionsExecutor.dial(this.buildPayload('dial', action))
-                onResult(result)
-                this.triggerLocalEventListener('dial', result)
-                triggerCustom(result)
-            } else if (actionType === 'answer') {
-                const result = await this.actionsExecutor.answer()
-                onResult(result)
-                this.triggerLocalEventListener('answer', result)
-                triggerCustom(result)
-            } else if (actionType === 'wait') {
-                const result = await this.actionsExecutor.wait(this.buildPayload('wait', action))
-                onResult(result)
-                triggerCustom(result)
-            } else if (actionType === 'hold') {
-                const result = await this.actionsExecutor.hold()
-                onResult(result)
-                this.triggerLocalEventListener('hold', result)
-                triggerCustom(result)
-            } else if (actionType === 'unhold') {
-                const result = await this.actionsExecutor.unhold()
-                onResult(result)
-                this.triggerLocalEventListener('unhold', result)
-                triggerCustom(result)
-            } else if (actionType === 'hangup') {
-                const result = await this.actionsExecutor.hangup()
-                onResult(result)
-                this.triggerLocalEventListener('hangup', result)
-                triggerCustom(result)
-            } else if (actionType === 'playSound') {
-                const result = await this.actionsExecutor.playSound(this.buildPayload('playSound', action))
-                onResult(result)
-                this.triggerLocalEventListener('playSound', result)
-                triggerCustom(result)
-            } else if (actionType === 'sendDTMF') {
-                const result = await this.actionsExecutor.sendDTMF(this.buildPayload('sendDTMF', action))
-                onResult(result)
-                this.triggerLocalEventListener('sendDTMF', result)
-                triggerCustom(result)
-            } else if (actionType === 'transfer') {
-                const result = await this.actionsExecutor.transfer(this.buildPayload('transfer', action))
-                onResult(result)
-                this.triggerLocalEventListener('transfer', result)
-                triggerCustom(result)
-            } else if (actionType === 'unregister') {
-                const result = await this.actionsExecutor.unregister()
-                onResult(result)
-                this.triggerLocalEventListener('unregister', result)
-                triggerCustom(result)
-            } else if (actionType === 'request') {
-                const result = await this.actionsExecutor.request(this.buildPayload('request', action))
-                onResult(result)
-                this.triggerLocalEventListener('request', result)
-                triggerCustom(result)
+            // Execute the action with proper type safety
+            switch (actionType) {
+                case 'register':
+                    result = await this.actionsExecutor.register(this.buildPayload('register', action))
+                    break
+                case 'dial':
+                    result = await this.actionsExecutor.dial(this.buildPayload('dial', action))
+                    break
+                case 'answer':
+                    result = await this.actionsExecutor.answer()
+                    break
+                case 'wait':
+                    result = await this.actionsExecutor.wait(this.buildPayload('wait', action))
+                    break
+                case 'hold':
+                    result = await this.actionsExecutor.hold()
+                    break
+                case 'unhold':
+                    result = await this.actionsExecutor.unhold()
+                    break
+                case 'hangup':
+                    result = await this.actionsExecutor.hangup()
+                    break
+                case 'playSound':
+                    result = await this.actionsExecutor.playSound(this.buildPayload('playSound', action))
+                    break
+                case 'sendDTMF':
+                    result = await this.actionsExecutor.sendDTMF(this.buildPayload('sendDTMF', action))
+                    break
+                case 'transfer':
+                    result = await this.actionsExecutor.transfer(this.buildPayload('transfer', action))
+                    break
+                case 'unregister':
+                    result = await this.actionsExecutor.unregister()
+                    break
+                case 'request':
+                    result = await this.actionsExecutor.request(this.buildPayload('request', action))
+                    break
+                default:
+                    // TypeScript will ensure this case never happens
+                    throw new Error(`Unknown action type: ${actionType}`)
             }
+
+            // Handle result consistently for all actions
+            onResult(result)
+
+            // Always trigger local event listener for actions that have corresponding events
+            const actionsWithoutEvents: Array<ActionType> = [ 'wait' ]
+
+            if (!actionsWithoutEvents.includes(actionType)) {
+                this.triggerLocalEventListener(actionType, result)
+            }
+
+            // Always trigger custom events if specified
+            triggerCustom(result)
+
+            // Log successful completion with result details
+            await this.telemetryService.logCompleted(action.type, {
+                success: result.success.toString(),
+                resultType: typeof result,
+                hasCustomEvent: !!action.data?.customSharedEvent
+            })
+
         } catch (error) {
             console.error(`[Scenario "${this.scenarioName}"] Error executing action:`, error)
-            logTestEvent(action.type, this.scenarioId, 'failure', {
-                stage: 'listener_error',
-                errorMessage: error
+
+            // Log the error with detailed context
+            await this.telemetryService.logError(action.type, error, {
+                phase: 'execution',
+                actionData: JSON.stringify(action.data),
+                errorMessage: error instanceof Error ? error.message : String(error)
             })
+
             throw error
-        } finally {
-            logTestEvent(action.type, this.scenarioId, 'success', {
-                stage: 'completed',
-            })
         }
     }
 
     private async start (): Promise<void> {
-        this.browser = await chromium.launch({
-            headless: false,
-            args: [
-                '--use-fake-ui-for-media-stream',
-                '--use-fake-device-for-media-stream',
-                `--use-file-for-fake-audio-capture=${audioPath}`,
-                '--allow-file-access',
-                '--autoplay-policy=no-user-gesture-required'
-            ],
-        })
+        // Log scenario start
+        await this.telemetryService.logTriggered('scenario_start')
 
-        const context = await this.browser.newContext()
-        this.page = await context.newPage()
+        try {
+            this.browser = await chromium.launch({
+                headless: false,
+                args: [
+                    '--use-fake-ui-for-media-stream',
+                    '--use-fake-device-for-media-stream',
+                    '--allow-file-access',
+                    '--autoplay-policy=no-user-gesture-required',
+                    '--disable-web-security',
+                    '--allow-running-insecure-content'
+                ],
+            })
 
-        this.pageWebSocketWorker = new PageWebSocketWorker(
-            this.page,
-            {
-                INVITE: 'incoming',
-                ACK: 'callConfirmed',
-                CANCEL: 'callCancelled',
-                BYE: 'callEnded',
-                UPDATE: 'callUpdated',
-                MESSAGE: 'messageReceived',
-                OPTIONS: 'optionsReceived',
-                REFER: 'callReferred',
-                INFO: 'infoReceived',
-                NOTIFY: 'notificationReceived',
-            },
-            this.triggerLocalEventListener.bind(this)
-        )
+            const context = await this.browser.newContext({
+                permissions: [ 'microphone', 'camera' ]
+            })
+            this.page = await context.newPage()
 
-        //this.windowMethodsWorker = new WindowMethodsWorker(this.page)
+            // Pass telemetry service to PageWebSocketWorker
+            this.pageWebSocketWorker = new PageWebSocketWorker(
+                this.page,
+                {
+                    INVITE: 'incoming',
+                    ACK: 'callConfirmed',
+                    CANCEL: 'callCancelled',
+                    BYE: 'callEnded',
+                    UPDATE: 'callUpdated',
+                    MESSAGE: 'messageReceived',
+                    OPTIONS: 'optionsReceived',
+                    REFER: 'callReferred',
+                    INFO: 'infoReceived',
+                    NOTIFY: 'notificationReceived',
+                },
+                this.triggerLocalEventListener.bind(this),
+                this.telemetryService // Pass telemetry service
+            )
 
-        this.actionsExecutor = new ActionsExecutor(
-            this.scenarioId,
-            this.pageWebSocketWorker,
-            this.windowMethodsWorker,
-            this.page,
-            this.browser
-        )
+            this.windowMethodsWorker = new WindowMethodsWorker(this.page)
+            await this.windowMethodsWorker.implementPlayClipMethod()
 
-        //await this.windowMethodsWorker.implementPlayClipMethod()
+            this.actionsExecutor = new ActionsExecutor(
+                this.scenarioId,
+                this.pageWebSocketWorker,
+                this.windowMethodsWorker,
+                this.page,
+                this.browser
+            )
 
-        await this.page.goto('http://localhost:5173')
-        await waitMs(100)
-        this.triggerLocalEventListener('ready', { timestamp: Date.now() })
+            await this.page.goto(`http://localhost:${env.APPLICATION_PORT}`)
+            await waitMs(100)
+
+            // Log successful scenario start
+            await this.telemetryService.logCompleted('scenario_start')
+
+            this.triggerLocalEventListener('ready', { timestamp: Date.now() })
+        } catch (error) {
+            await this.telemetryService.logError('scenario_start', error)
+            throw error
+        }
     }
 
     public async executeScenario (scenario: TestScenario): Promise<void> {
         console.log('[Scenario] Executing scenario:', scenario)
 
-        const eventCounter: Record<EventType, number> = {
-            register: 0,
-            dial: 0,
-            answer: 0,
-            ready: 0,
-            incoming: 0,
-            hangup: 0
-        }
+        try {
+            const eventCounter: Record<string, number> = {} // Changed to string to allow custom events
+            const eventHandlers: Record<string, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]> = {}
 
-        const eventHandlers: Record<EventType, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]> = {
-            register: [],
-            dial: [],
-            answer: [],
-            ready: [],
-            incoming: [],
-            hangup: []
-        }
-
-        for (const { event, actions } of scenario.actions) {
-            if (!eventHandlers[event]) {
-                eventHandlers[event] = []
-                eventCounter[event] = 0
-            }
-            eventHandlers[event].push(actions)
-        }
-
-        console.log('eventHandlers', eventHandlers)
-
-        for (const eventName in eventHandlers) {
-            const handlers = eventHandlers[eventName]
-
-            this.addEventListener(eventName, async (_, eventData) => {
-                if (!this.shouldReactToEvent(eventData)) return
-
-                const currentIndex = eventCounter[eventName]
-                const actions = handlers[currentIndex]
-
-                if (actions) {
-                    eventCounter[eventName]++
-                    for (const action of actions) {
-                        await this.executeAction(action)
-                    }
+            // Initialize all event handlers
+            for (const { event, actions } of scenario.actions) {
+                if (!eventHandlers[event]) {
+                    eventHandlers[event] = []
+                    eventCounter[event] = 0
                 }
-            })
-        }
+                eventHandlers[event].push(actions)
+            }
 
-        await this.start()
+            console.log('eventHandlers', eventHandlers)
+
+            // Set up event listeners for all events (including custom ones)
+            for (const eventName in eventHandlers) {
+                const handlers = eventHandlers[eventName]
+
+                this.addEventListener(eventName, async (_, eventData) => {
+                    // For custom events, don't check scenario restriction
+                    if (!eventName.startsWith('ready') &&
+                        !eventName.startsWith('register') &&
+                        !eventName.startsWith('dial') &&
+                        !eventName.startsWith('answer') &&
+                        !eventName.startsWith('incoming') &&
+                        !eventName.startsWith('hangup')) {
+                        // This is a custom event, don't restrict to scenario
+                    } else if (!this.shouldReactToEvent(eventData)) {
+                        return
+                    }
+
+                    const currentIndex = eventCounter[eventName]
+                    const actions = handlers[currentIndex]
+
+                    if (actions) {
+                        eventCounter[eventName]++
+
+                        // Log event handling
+                        await this.telemetryService.logEvent(`event_${eventName}`, 'success', {
+                            stage: 'triggered',
+                            eventIndex: currentIndex.toString(),
+                            actionsCount: actions.length.toString()
+                        })
+
+                        for (const action of actions) {
+                            await this.executeAction(action)
+                        }
+
+                        await this.telemetryService.logEvent(`event_${eventName}`, 'success', {
+                            stage: 'completed',
+                            eventIndex: currentIndex.toString(),
+                            actionsCount: actions.length.toString()
+                        })
+                    }
+                })
+            }
+
+            await this.start()
+
+            // Keep the scenario alive until it's explicitly completed
+            // Don't cleanup immediately
+            console.log(`[Scenario ${this.scenarioId}] Scenario setup complete, waiting for events...`)
+
+        } catch (error) {
+            await this.telemetryService.logError('scenario_execution', error)
+            this.scenarioCompleted = true
+            throw error
+        } finally {
+            // Only cleanup if scenario is actually completed
+            if (this.scenarioCompleted) {
+                this.telemetryService.cleanup()
+            }
+        }
+    }
+
+    // Add method to manually complete scenario
+    public completeScenario (): void {
+        this.scenarioCompleted = true
+        this.telemetryService.cleanup()
     }
 }

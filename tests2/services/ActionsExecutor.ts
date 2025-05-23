@@ -6,8 +6,6 @@ import { WebRTCMetricsCollector } from './WebRTCMetricsCollector'
 import PageWebSocketWorker from './PageWebSocketWorker'
 import WindowMethodsWorker from './WindowMethodsWorker'
 
-import '../services/TelemetrySetup'
-
 import {
     GetActionPayload,
     GetActionResponse,
@@ -256,6 +254,11 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
 
         const metrics = await this.page.evaluate(WebRTCMetricsCollector.collectMetrics)
 
+        // Clean up the WindowMethodsWorker
+        if (this.windowMethodsWorker) {
+            await this.windowMethodsWorker.cleanup()
+        }
+
         // Clicking the logout button
         await this.logoutButton.click()
 
@@ -283,39 +286,75 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         const soundPath = data.sound
         console.log(`[Scenario ${this.scenarioId}] Playing sound`, soundPath)
 
-        const soundFileName = path.basename(soundPath)
+        try {
+            let fullPath: string
 
-        // Read the file as a Buffer
-        const fileData = await fs.readFile(soundPath)
+            // Handle relative paths by resolving from sounds directory
+            if (!path.isAbsolute(soundPath)) {
+                fullPath = path.resolve(process.cwd(), soundPath)
+            } else {
+                fullPath = soundPath
+            }
 
-        // Determine MIME type based on file extension
-        const mimeTypes = {
-            '.mp3': 'audio/mpeg',
-            '.wav': 'audio/wav',
-            '.ogg': 'audio/ogg',
-            '.m4a': 'audio/mp4',
-            // Add more as needed
-        }
-        const ext = path.extname(soundPath).toLowerCase()
-        const mimeType = mimeTypes[ext] || 'audio/mpeg'
+            const soundFileName = path.basename(fullPath)
 
-        // Create a data URL
-        const base64Data = fileData.toString('base64')
-        const dataUrl = `data:${mimeType};base64,${base64Data}`
+            // Check if windowMethodsWorker is available and properly initialized
+            if (!this.windowMethodsWorker) {
+                throw new Error('WindowMethodsWorker is not available')
+            }
 
-        // Pass the dataUrl to the browser's playClip function instead of just the filename
-        await this.windowMethodsWorker.playClip(dataUrl)
+            // Check if file exists
+            try {
+                await fs.access(fullPath)
+            } catch (error) {
+                throw new Error(`Sound file not found: ${fullPath}`)
+            }
 
-        console.log(`[Scenario ${this.scenarioId}] Sound played: ${soundFileName}`)
-        await waitMs(soundPath.length * 100)
+            // Read the file as a Buffer
+            const fileData = await fs.readFile(fullPath)
 
-        return {
-            success: true
+            // Determine MIME type based on file extension
+            const mimeTypes: Record<string, string> = {
+                '.mp3': 'audio/mpeg',
+                '.wav': 'audio/wav',
+                '.ogg': 'audio/ogg',
+                '.m4a': 'audio/mp4',
+                '.webm': 'audio/webm',
+                '.aac': 'audio/aac',
+                '.flac': 'audio/flac'
+            }
+            const ext = path.extname(fullPath).toLowerCase()
+            const mimeType = mimeTypes[ext] || 'audio/wav' // Default to wav for unknown types
+
+            // Create a data URL
+            const base64Data = fileData.toString('base64')
+            const dataUrl = `data:${mimeType};base64,${base64Data}`
+
+            console.log(`[Scenario ${this.scenarioId}] Playing audio file: ${soundFileName} (${mimeType}, ${Math.round(fileData.length / 1024)}KB)`)
+
+            // Use the WindowMethodsWorker to play the clip
+            const startTime = Date.now()
+            await this.windowMethodsWorker.playClip(dataUrl)
+            const playDuration = Date.now() - startTime
+
+            console.log(`[Scenario ${this.scenarioId}] Sound played successfully: ${soundFileName} (${playDuration}ms)`)
+
+            return {
+                success: true,
+                soundFile: soundFileName,
+                duration: playDuration
+            }
+        } catch (error) {
+            console.error(`[Scenario ${this.scenarioId}] Error playing sound:`, error)
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error playing sound'
+            }
         }
     }
 
     public async request (data: GetActionPayload<RequestAction>): Promise<GetActionResponse<RequestAction>> {
-        console.log(`[Scenario ${this.scenarioId}] Executing request action`, data)
+        console.log(`[Scenario ${this.scenarioId}] Executing request action`)
 
         try {
             const response = await this.page.request.fetch(
@@ -325,10 +364,8 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
 
             const responseBody = await response.json()
 
-            console.log('GOT RESPONSE', responseBody)
-
             return {
-                success: response.ok(),
+                success: true,
                 response: responseBody
             }
         } catch (error) {

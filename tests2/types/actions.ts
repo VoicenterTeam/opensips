@@ -4,16 +4,23 @@
 import { APIRequestContext } from 'playwright-core'
 import { EventType } from './events'
 
-export interface ActionSuccessResponse {
+// Base success response - all successful responses extend this
+export interface BaseActionSuccessResponse {
     success: true
-    // The response data of the action
+    // Any additional properties allowed
     [key: string]: any
 }
+
+// Base error response - standardized error format
 export interface ActionErrorResponse {
     success: false
-    // The error message of the action
-    error: string
+    error: string // User-friendly error message
 }
+
+// Union type for all action responses
+export type ActionResponse<TSuccess extends BaseActionSuccessResponse = BaseActionSuccessResponse> =
+    | TSuccess
+    | ActionErrorResponse
 
 interface ActionResponseToContextEnabled {
     // The action will set the response to the context
@@ -30,13 +37,15 @@ interface ActionResponseToContextDisabled {
 export type ActionResponseToContext =
     | ActionResponseToContextEnabled
     | ActionResponseToContextDisabled
+
 export interface ActionWaitUntil {
     // The event to wait for
     event: EventType
     // The timeout in milliseconds to execute the action if the event is not triggered
     timeout?: number
 }
-export interface ActionData<Payload extends object> {
+
+export interface ActionData<Payload extends object | undefined = undefined> {
     // The data of the action to execute
     payload?: Payload
 
@@ -49,17 +58,19 @@ export interface ActionData<Payload extends object> {
     // Custom event to trigger after the action
     customSharedEvent?: string
 }
-export interface BaseActionDefinition<Type extends string, Payload extends object> {
+
+export interface BaseActionDefinition<Type extends string, Payload extends object | undefined = undefined> {
     type: Type
-    data: ActionData<Payload>
+    data?: ActionData<Payload>
 }
-export interface Action <
+
+export interface Action<
     Type extends string,
-    Payload = undefined,
-    SuccessResponse extends ActionSuccessResponse
+    Payload extends object | undefined = undefined,
+    SuccessResponse extends BaseActionSuccessResponse = BaseActionSuccessResponse
 > {
     definition: BaseActionDefinition<Type, Payload>
-    response: SuccessResponse | ActionErrorResponse
+    response: ActionResponse<SuccessResponse>
 }
 
 /*******************************/
@@ -72,163 +83,172 @@ interface RegisterActionPayload {
     username: string
     password: string
 }
-interface RegisterActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface RegisterActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     instanceId: string
 }
 export type RegisterAction = Action<
     'register',
     RegisterActionPayload,
-    RegisterActionResponse
+    RegisterActionSuccessResponse
 >
 
 /* Dial */
-interface DialActionData {
+interface DialActionPayload {
     target: string
 }
-interface DialActionResponse extends ActionSuccessResponse {
-    success: boolean
-    target: string,
+interface DialActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
+    target: string
     callId: string
 }
 export type DialAction = Action<
     'dial',
-    DialActionData,
-    DialActionResponse
+    DialActionPayload,
+    DialActionSuccessResponse
 >
 
 /* Wait */
-interface WaitActionData {
+interface WaitActionPayload {
     // The time to wait in milliseconds
     time: number
 }
-interface WaitActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface WaitActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
 }
 export type WaitAction = Action<
     'wait',
-    WaitActionData,
-    WaitActionResponse
+    WaitActionPayload,
+    WaitActionSuccessResponse
 >
 
 /* Play Sound */
-interface PlaySoundActionData {
+interface PlaySoundActionPayload {
     // The sound to play, can be a URL or a file path
     sound: string
 }
-interface PlaySoundActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface PlaySoundActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
 }
 export type PlaySoundAction = Action<
     'playSound',
-    PlaySoundActionData,
-    PlaySoundActionResponse
+    PlaySoundActionPayload,
+    PlaySoundActionSuccessResponse
 >
 
 /* Answer */
-interface AnswerActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface AnswerActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     callId: string
 }
 export type AnswerAction = Action<
     'answer',
-    never,
-    AnswerActionResponse
+    undefined,
+    AnswerActionSuccessResponse
 >
 
 /* Hold */
-interface HoldActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface HoldActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     callId: string
 }
 export type HoldAction = Action<
     'hold',
-    never,
-    HoldActionResponse
+    undefined,
+    HoldActionSuccessResponse
 >
 
 /* Unhold */
-interface UnholdActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface UnholdActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     callId: string
 }
 export type UnholdAction = Action<
     'unhold',
-    never,
-    UnholdActionResponse
+    undefined,
+    UnholdActionSuccessResponse
 >
 
 /* Hangup */
-interface HangupActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface HangupActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     callId: string
 }
 export type HangupAction = Action<
     'hangup',
-    never,
-    HangupActionResponse
+    undefined,
+    HangupActionSuccessResponse
 >
 
 /* Send DTMF */
-interface SendDTMFEventData {
+interface SendDTMFActionPayload {
     // The DTMF number to send
     dtmf: string
 }
-interface SendDTMFActionResponse extends ActionSuccessResponse {
+interface SendDTMFActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     dtmf: string
     callId: string
-    success: boolean
 }
 export type SendDTMFAction = Action<
     'sendDTMF',
-    SendDTMFEventData,
-    SendDTMFActionResponse
+    SendDTMFActionPayload,
+    SendDTMFActionSuccessResponse
 >
 
 /* Transfer */
-interface TransferEventData {
+interface TransferActionPayload {
     // The target to transfer the call to
     target: string
 }
-interface TransferActionResponse extends ActionSuccessResponse {
+interface TransferActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
     callId: string
-    success: boolean
 }
 export type TransferAction = Action<
     'transfer',
-    TransferEventData,
-    TransferActionResponse
+    TransferActionPayload,
+    TransferActionSuccessResponse
 >
 
 /* Unregister */
-interface UnregisterActionResponse extends ActionSuccessResponse {
-    success: boolean
+interface UnregisterActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
 }
 export type UnregisterAction = Action<
     'unregister',
-    never,
-    UnregisterActionResponse
+    undefined,
+    UnregisterActionSuccessResponse
 >
 
 /* Request */
-interface RequestActionData {
+interface RequestActionPayload {
     url: string
     options: Parameters<APIRequestContext['fetch']>[1]
 }
+interface RequestActionSuccessResponse extends BaseActionSuccessResponse {
+    success: true
+    response: any // The actual API response
+}
 export type RequestAction = Action<
     'request',
-    RequestActionData,
-    any
+    RequestActionPayload,
+    RequestActionSuccessResponse
 >
 
 /****************/
 /* Helper types */
 /****************/
-export type GetActionDefinition<T extends Action> = T['definition']
-export type GetActionResponse<T extends Action> = T['response']
-export type GetActionData<T extends Action> = GetActionDefinition<T>['data']
-export type GetActionPayload<T extends Action> = GetActionData<T>['payload']
-type ActionExecutorAction<T extends Action> = (data: GetActionPayload<T>) => Promise<GetActionResponse<T>>
+export type GetActionDefinition<T extends Action<any, any, any>> = T['definition']
+export type GetActionResponse<T extends Action<any, any, any>> = T['response']
+export type GetActionData<T extends Action<any, any, any>> = GetActionDefinition<T>['data']
+export type GetActionPayload<T extends Action<any, any, any>> = GetActionData<T>['payload']
+
+// Type-safe action executor function
+type ActionExecutorAction<T extends Action<any, any, any>> =
+    GetActionPayload<T> extends undefined
+        ? () => Promise<GetActionResponse<T>>
+        : (data: GetActionPayload<T>) => Promise<GetActionResponse<T>>
 
 export interface ActionsMap {
     register: RegisterAction
@@ -248,12 +268,27 @@ export interface ActionsMap {
 export type ActionsExecutorImplements = {
     [K in keyof ActionsMap]: ActionExecutorAction<ActionsMap[K]>
 }
+
 export type ActionsScenariosBuilderImplements = {
     [K in keyof ActionsMap]: (data: GetActionData<ActionsMap[K]>) => GetActionDefinition<ActionsMap[K]>
 }
+
 export type ActionsResponseMap = {
     [K in keyof ActionsMap]: GetActionResponse<ActionsMap[K]>
 }
 
 export type ActionType = keyof ActionsMap
 export type ActionByActionType<T extends ActionType> = T extends keyof ActionsMap ? ActionsMap[T] : never
+
+// Type guards for runtime type checking
+export function isActionSuccess<T extends BaseActionSuccessResponse> (
+    response: ActionResponse<T>
+): response is T {
+    return response.success === true
+}
+
+export function isActionError<T extends BaseActionSuccessResponse> (
+    response: ActionResponse<T>
+): response is ActionErrorResponse {
+    return response.success === false
+}

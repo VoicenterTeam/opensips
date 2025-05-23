@@ -24,9 +24,9 @@
               "responseToContext": {
                 "setToContext": true,
                 "contextKeyToSet": "caller_login_api_response"
-              }
-            },
-            "waitUntil": { "event": "callee_registered" }
+              },
+              "waitUntil": { "event": "callee_registered" }
+            }
           },
           {
             "type": "request",
@@ -130,6 +130,14 @@
       {
         "event": "ready",
         "actions": [
+          {
+            "type": "wait",
+            "data": {
+              "payload": {
+                "time": 2000
+              }
+            }
+          },
           {
             "type": "request",
             "data": {

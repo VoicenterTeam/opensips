@@ -1,8 +1,7 @@
 import { Page, WebSocket } from 'playwright'
 import Parser from '../../src/lib/janus/Parser'
 import Logger from './Logger'
-import './TelemetrySetup'
-import { logTestEvent } from './TelemetrySetup'
+import { TelemetryService } from './TelemetryService'
 
 interface WaitForMessageOptions {
     method: string
@@ -13,17 +12,13 @@ interface WaitForMessageOptions {
 export default class PageWebSocketWorker {
     private readonly logger = new Logger('PageWebSocketWorker')
     private connectedWebsocket: WebSocket
-    public scenarioId: string
 
     constructor (
         private readonly page: Page,
         private readonly socketEventsToMonitor: Record<string, string> = {},
-        private readonly callback: (eventName: string) => never
+        private readonly callback: (eventName: string) => never,
+        private readonly telemetryService: TelemetryService
     ) {}
-
-    public setScenarioId (id: string): void {
-        this.scenarioId = id
-    }
 
     public setConnectedWebsocket (ws: WebSocket): void {
         this.connectedWebsocket = ws
@@ -35,8 +30,7 @@ export default class PageWebSocketWorker {
     }
 
     public setWebsocketListener (ws: WebSocket) {
-        // Use a direct listener approach instead of polling
-        ws.on('framereceived', (msg) => {
+        ws.on('framereceived', async (msg) => {
             if (typeof msg.payload === 'string') {
                 const message = msg.payload
                 const parsedMessage = Parser.parseMessage(message, {
@@ -44,8 +38,10 @@ export default class PageWebSocketWorker {
                     contact: {}
                 })
 
-                logTestEvent(parsedMessage.method, this.scenarioId, 'success', {
-                    stage: 'triggered',
+                await this.telemetryService.logEvent(`websocket_${parsedMessage.method}`, 'success', {
+                    stage: 'received',
+                    method: parsedMessage.method,
+                    status_code: 'status_code' in parsedMessage ? parsedMessage.status_code?.toString() : 'none'
                 })
 
                 console.log('RECEIVED WEBSOCKET FRAME', {
@@ -68,12 +64,14 @@ export default class PageWebSocketWorker {
             const timeout = setTimeout(
                 () => {
                     this.logger.log('Timeout waiting for message')
+                    this.telemetryService.logError(`websocket_wait_${waitingOptions.method}`,
+                        `Timeout waiting for ${waitingOptions.method}`)
                     reject(new Error(`Timeout waiting for message ${waitingOptions.method}`))
                 },
                 waitingOptions.timeout
             )
 
-            const listener = (msg: {payload: string | Buffer})=> {
+            const listener = async (msg: {payload: string | Buffer}) => {
                 if (typeof msg.payload === 'string') {
                     const message = msg.payload
                     const parsedMessage = Parser.parseMessage(message, {
@@ -81,11 +79,17 @@ export default class PageWebSocketWorker {
                         contact: {}
                     })
 
-                    logTestEvent(parsedMessage.method, this.scenarioId, 'success', {
-                        stage: 'triggered',
+                    await this.telemetryService.logEvent(`websocket_wait_${parsedMessage.method}`, 'success', {
+                        stage: 'received',
+                        method: parsedMessage.method,
+                        waiting_for: waitingOptions.method,
+                        expected_status: waitingOptions.status_code.toString()
                     })
 
-                    if (parsedMessage && parsedMessage.method === waitingOptions.method && ('status_code' in parsedMessage && parsedMessage.status_code === waitingOptions.status_code)) {
+                    if (parsedMessage &&
+                        parsedMessage.method === waitingOptions.method &&
+                        ('status_code' in parsedMessage && parsedMessage.status_code === waitingOptions.status_code)) {
+
                         this.logger.log('Received expected message:', parsedMessage.method)
                         clearTimeout(timeout)
                         ws.off('framereceived', listener.bind(this))
@@ -103,6 +107,8 @@ export default class PageWebSocketWorker {
             const timeout = setTimeout(
                 () => {
                     this.logger.log('Timeout waiting for websocket')
+                    this.telemetryService.logError('websocket_connection',
+                        `Timeout waiting for websocket connection to ${domain}`)
                     reject(new Error(`Timeout waiting for websocket ${domain}`))
                 },
                 10000
@@ -116,6 +122,11 @@ export default class PageWebSocketWorker {
 
                 if (connectedWebsocketDomain === domain) {
                     this.logger.log('WebSocket found for domain:', domain)
+
+                    this.telemetryService.logEvent('websocket_connection', 'success', {
+                        stage: 'connected',
+                        domain: domain
+                    })
 
                     clearTimeout(timeout)
                     resolve(ws)
