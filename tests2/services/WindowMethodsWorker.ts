@@ -1,4 +1,3 @@
-/*
 import { Page } from 'playwright'
 
 type PlayClipFunction = (url: string) => Promise<void>
@@ -48,4 +47,3 @@ export default class WindowMethodsWorker {
         }, url)
     }
 }
-*/

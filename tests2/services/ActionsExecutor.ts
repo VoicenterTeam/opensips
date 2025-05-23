@@ -78,18 +78,40 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         await this.passwordInput.fill(password)
         await this.domainInput.fill(sip_domain)
 
-        await this.loginButton.click()
+        return new Promise(
+            (resolve) => {
+                this.pageWebSocketWorker.waitForSocket(sip_domain)
+                    .then(async (ws) => {
+                        await this.pageWebSocketWorker.waitForMessage(
+                            ws,
+                            {
+                                method: 'REGISTER',
+                                status_code: 200,
+                                timeout: 10000
+                            }
+                        )
 
-        this.pageWebSocketWorker.init(sip_domain)
+                        this.pageWebSocketWorker.setConnectedWebsocket(ws)
+                        this.pageWebSocketWorker.setWebsocketListener(ws)
+                        await this.page.evaluate(WebRTCMetricsCollector.initializeMetricsAnalyze)
 
-        await this.page.evaluate(WebRTCMetricsCollector.initializeMetricsAnalyze)
+                        console.log(`[Scenario ${this.scenarioId}] Successfully registered`)
 
-        console.log(`[Scenario ${this.scenarioId}] Registration already completed, skipping`)
+                        resolve({
+                            success: true,
+                            instanceId: instanceId
+                        })
+                    })
+                    .catch(err => {
+                        resolve({
+                            success: false,
+                            error: err instanceof Error ? err.message : 'Error executing register action'
+                        })
+                    })
 
-        return {
-            success: true,
-            instanceId: instanceId
-        }
+                this.loginButton.click()
+            }
+        )
     }
 
     public async dial (data: GetActionPayload<DialAction>): Promise<GetActionResponse<DialAction>> {
@@ -98,14 +120,27 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         this.yourTargetInput = this.page.locator('#makeCallForm input')
         this.callButton = this.page.locator('#makeCallForm button')
 
-        await waitMs(300)
-
         await this.yourTargetInput.fill(String(data.target))
+
         await this.callButton.click()
 
-        const callId = 'call-' + Math.floor(Math.random() * 10000)
+        try {
+            await this.pageWebSocketWorker.waitForMessage(
+                this.pageWebSocketWorker.getConnectedWebsocket(),
+                {
+                    method: 'INVITE',
+                    status_code: 200,
+                    timeout: 10000
+                }
+            )
+        } catch (error) {
+            return {
+                success: false,
+                error: `Error dialing the number ${data.target}`
+            }
+        }
 
-        await waitMs(300)
+        const callId = 'call-' + Math.floor(Math.random() * 10000)
 
         return {
             callId,
@@ -244,7 +279,7 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         }
     }
 
-    /*    public async playSound (data: GetActionPayload<PlaySoundAction>): Promise<GetActionResponse<PlaySoundAction>> {
+    public async playSound (data: GetActionPayload<PlaySoundAction>): Promise<GetActionResponse<PlaySoundAction>> {
         const soundPath = data.sound
         console.log(`[Scenario ${this.scenarioId}] Playing sound`, soundPath)
 
@@ -277,7 +312,7 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
         return {
             success: true
         }
-    }*/
+    }
 
     public async request (data: GetActionPayload<RequestAction>): Promise<GetActionResponse<RequestAction>> {
         console.log(`[Scenario ${this.scenarioId}] Executing request action`, data)
@@ -289,6 +324,8 @@ export default class ActionsExecutor implements ActionsExecutorImplements {
             )
 
             const responseBody = await response.json()
+
+            console.log('GOT RESPONSE', responseBody)
 
             return {
                 success: response.ok(),

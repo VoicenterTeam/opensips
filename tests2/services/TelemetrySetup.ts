@@ -17,8 +17,7 @@ import axios from 'axios'
 const sdk = new NodeSDK({
     traceExporter: new ConsoleSpanExporter(), // Exports spans to the console
     metricReader: new PeriodicExportingMetricReader({
-        exporter: new ConsoleMetricExporter(), // Exports metrics to the console
-        interval: 5000, // Metric export interval (ms)
+        exporter: new ConsoleMetricExporter(),
     }),
     instrumentations: [ getNodeAutoInstrumentations() ], // Automatic instrumentation for Node.js
 })

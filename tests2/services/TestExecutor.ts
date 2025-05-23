@@ -16,7 +16,8 @@ import {
     GetActionDefinition,
     ActionType,
     ActionByActionType,
-    GetActionPayload
+    GetActionPayload,
+    ActionErrorResponse
 } from '../types/actions'
 import { TestScenario } from '../types/intex'
 import { EventListener, EventListenerData, EventType } from '../types/events'
@@ -121,6 +122,7 @@ export default class TestExecutor {
                 throw error
             }
         }
+
         logTestEvent(action.type, this.scenarioId, 'success', {
             stage: 'triggered',
         })
@@ -137,7 +139,13 @@ export default class TestExecutor {
                 }, 0)
             }
         }
-        const onResult = <T extends ActionType> (result: ActionsResponseMap[T]) => {
+        const onResult = <T extends ActionType> (result: ActionsResponseMap[T] | ActionErrorResponse) => {
+            if ('success' in result && result.success === false) {
+                console.error(`[Scenario ${this.scenarioId}] Action failed:`, result.error)
+
+                throw new Error(result.error)
+            }
+
             if ('responseToContext' in action.data && action.data.responseToContext.setToContext && action.data.responseToContext.contextKeyToSet) {
                 this.scenarioManager.updateContext({
                     [action.data.responseToContext.contextKeyToSet]: result
@@ -154,66 +162,66 @@ export default class TestExecutor {
             // Use a type safe approach that doesn't require explicit typing of 'result'
             if (actionType === 'register') {
                 const result = await this.actionsExecutor.register(this.buildPayload('register', action))
+                onResult(result)
                 this.triggerLocalEventListener('register', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'dial') {
                 const result = await this.actionsExecutor.dial(this.buildPayload('dial', action))
+                onResult(result)
                 this.triggerLocalEventListener('dial', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'answer') {
                 const result = await this.actionsExecutor.answer()
+                onResult(result)
                 this.triggerLocalEventListener('answer', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'wait') {
                 const result = await this.actionsExecutor.wait(this.buildPayload('wait', action))
-                triggerCustom(result)
                 onResult(result)
+                triggerCustom(result)
             } else if (actionType === 'hold') {
                 const result = await this.actionsExecutor.hold()
+                onResult(result)
                 this.triggerLocalEventListener('hold', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'unhold') {
                 const result = await this.actionsExecutor.unhold()
+                onResult(result)
                 this.triggerLocalEventListener('unhold', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'hangup') {
                 const result = await this.actionsExecutor.hangup()
+                onResult(result)
                 this.triggerLocalEventListener('hangup', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'playSound') {
                 const result = await this.actionsExecutor.playSound(this.buildPayload('playSound', action))
+                onResult(result)
                 this.triggerLocalEventListener('playSound', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'sendDTMF') {
                 const result = await this.actionsExecutor.sendDTMF(this.buildPayload('sendDTMF', action))
+                onResult(result)
                 this.triggerLocalEventListener('sendDTMF', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'transfer') {
                 const result = await this.actionsExecutor.transfer(this.buildPayload('transfer', action))
+                onResult(result)
                 this.triggerLocalEventListener('transfer', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'unregister') {
                 const result = await this.actionsExecutor.unregister()
+                onResult(result)
                 this.triggerLocalEventListener('unregister', result)
                 triggerCustom(result)
-                onResult(result)
             } else if (actionType === 'request') {
                 const result = await this.actionsExecutor.request(this.buildPayload('request', action))
+                onResult(result)
                 this.triggerLocalEventListener('request', result)
                 triggerCustom(result)
-                onResult(result)
             }
         } catch (error) {
-            console.error(`[Scenario ${this.scenarioId}] Error executing action:`, error)
+            console.error(`[Scenario "${this.scenarioName}"] Error executing action:`, error)
             logTestEvent(action.type, this.scenarioId, 'failure', {
                 stage: 'listener_error',
                 errorMessage: error
@@ -277,6 +285,7 @@ export default class TestExecutor {
 
     public async executeScenario (scenario: TestScenario): Promise<void> {
         console.log('[Scenario] Executing scenario:', scenario)
+
         const eventCounter: Record<EventType, number> = {
             register: 0,
             dial: 0,
@@ -285,6 +294,7 @@ export default class TestExecutor {
             incoming: 0,
             hangup: 0
         }
+
         const eventHandlers: Record<EventType, GetActionDefinition<ActionByActionType<keyof ActionsResponseMap>>[][]> = {
             register: [],
             dial: [],
