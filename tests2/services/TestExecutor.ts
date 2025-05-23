@@ -36,6 +36,7 @@ export default class TestExecutor {
 
     constructor (
         private readonly scenarioId: string,
+        private readonly scenarioName: string,
         private readonly scenarioManager: ScenarioManager
     ) {}
 
@@ -81,23 +82,23 @@ export default class TestExecutor {
         actionType: T,
         action: GetActionDefinition<ActionByActionType<T>>,
     ): Payload {
-        const payload = action.data.payload
+        let payload = action.data.payload
         const context = this.scenarioManager.getContext()
 
-        const keys = Object.keys(payload)
-        const newPayload = {
-            ...payload
-        }
-
-        for (const key of keys) {
-            if (typeof payload[key] === 'string') {
-                newPayload[key] = mustache.render(payload[key], context)
-            } else {
-                newPayload[key] = payload[key]
+        if (payload && typeof payload === 'object') {
+            try {
+                payload = JSON.parse(
+                    mustache.render(
+                        JSON.stringify(payload),
+                        context
+                    )
+                )
+            } catch (e) {
+                console.error(`[Scenario ${this.scenarioId}] Error rendering payload:`, e)
             }
         }
 
-        return newPayload as Payload
+        return payload as Payload
     }
 
     private async executeAction<T extends ActionType> (
@@ -137,7 +138,13 @@ export default class TestExecutor {
             }
         }
         const onResult = <T extends ActionType> (result: ActionsResponseMap[T]) => {
-            this.scenarioManager.updateContext(result)
+            if ('responseToContext' in action.data && action.data.responseToContext.setToContext && action.data.responseToContext.contextKeyToSet) {
+                this.scenarioManager.updateContext({
+                    [action.data.responseToContext.contextKeyToSet]: result
+                })
+
+                console.log('context after update:', JSON.stringify(this.scenarioManager.getContext()))
+            }
         }
 
         try {
@@ -287,7 +294,7 @@ export default class TestExecutor {
             hangup: []
         }
 
-        for (const { event, actions } of scenario) {
+        for (const { event, actions } of scenario.actions) {
             if (!eventHandlers[event]) {
                 eventHandlers[event] = []
                 eventCounter[event] = 0
