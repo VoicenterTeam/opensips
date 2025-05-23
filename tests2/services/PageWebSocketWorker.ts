@@ -1,15 +1,18 @@
 import { Page, WebSocket } from 'playwright'
 import Parser from '../../src/lib/janus/Parser'
 import Logger from './Logger'
-
+import './TelemetrySetup'
+import { logTestEvent } from './TelemetrySetup'
 export default class PageWebSocketWorker {
     private readonly logger = new Logger('PageWebSocketWorker')
     private domain: string | null = null
+    public scenarioId: string
 
     constructor (
         private readonly page: Page,
         private readonly socketEventsToMonitor: Record<string, string> = {},
         private readonly callback: (eventName: string) => never
+
     ) {
         this.logger.log('PageWebSocketWorker constructor')
 
@@ -18,6 +21,9 @@ export default class PageWebSocketWorker {
 
             this.setWebsocketListener(ws)
         })
+    }
+    public setScenarioId (id: string): void {
+        this.scenarioId = id
     }
 
     private setWebsocketListener (ws: WebSocket) {
@@ -35,6 +41,9 @@ export default class PageWebSocketWorker {
                 const parsedMessage = Parser.parseMessage(message, {
                     configuration: {},
                     contact: {}
+                })
+                logTestEvent(parsedMessage.method, this.scenarioId, 'success', {
+                    stage: 'triggered',
                 })
 
                 console.log('message', parsedMessage.method)

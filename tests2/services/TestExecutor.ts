@@ -209,7 +209,7 @@ export default class TestExecutor {
             console.error(`[Scenario ${this.scenarioId}] Error executing action:`, error)
             logTestEvent(action.type, this.scenarioId, 'failure', {
                 stage: 'listener_error',
-                errorMessage: error.message
+                errorMessage: error
             })
             throw error
         } finally {
