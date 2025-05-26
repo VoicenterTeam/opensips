@@ -1,0 +1,48 @@
+stages:
+  - test_stage
+  - build_stage
+  - deploy_stage
+
+variables:
+  IMAGE_NAME: "$CI_REGISTRY_IMAGE/opensips-js-test-runner"
+
+test:
+  stage: test_stage
+  image: mcr.microsoft.com/playwright:v1.44.1-jammy-node20
+  script:
+    - yarn install --frozen-lockfile
+    - yarn dev
+    - yarn run-test
+  only:
+    - branches
+  artifacts:
+    paths:
+      - node_modules/
+      - dist/
+    expire_in: 1 hour
+
+build:
+  stage: build_stage
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $IMAGE_NAME:latest
+  dependencies:
+    - test
+
+deploy:
+  stage: deploy_stage
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login registry.voicenter.co -u $dplUser -p $dplPswd
+    - docker push registry.voicenter.co/voicenter/mirrored-opensips-js:${CI_COMMIT_BRANCH}
+  only:
+    - main
+    - master
+  dependencies:
+    - build
