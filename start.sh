@@ -12,6 +12,10 @@ while ! curl -s http://localhost:5173 >/dev/null; do
 done
 
 echo "Frontend is up! Running tests..."
+
+echo "SAMPLE_TO_EXECUTE=$SAMPLE_TO_EXECUTE"
+echo "PARAMETERS=$PARAMETERS"
+
 yarn run-test
 
 echo "Tests finished. Killing frontend..."
